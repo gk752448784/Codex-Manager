@@ -91,7 +91,7 @@ test("createThemeController registers dark theme and keeps fallback logic", () =
     controller.setTheme("dark");
     assert.equal(globalThis.document.body.dataset.theme, "dark");
     assert.equal(globalThis.localStorage.getItem("codexmanager.ui.theme"), "dark");
-    assert.match(themeToggle.textContent, /Dark/);
+    assert.match(themeToggle.textContent, /暗夜黑/);
     assert.equal(themePanel.buttons.find((button) => button.dataset.theme === "dark")?.classList.contains("is-active"), true);
 
     controller.setTheme("unknown-theme");

@@ -672,9 +672,9 @@
     );
     padding: 8px;
     gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    overflow-y: visible;
     border-radius: 12px;
 }
 
@@ -706,7 +706,7 @@
 }
 
 .settings-theme .theme-panel button[data-theme="dark"] {
-    --theme-chip: #4da3ff;
+    --theme-chip: #1f2937;
 }
 
 .settings-theme .theme-panel button[data-theme="business"] {
@@ -770,4 +770,91 @@
                 var(--theme-chip, var(--accent)) 18%,
                 transparent
             );
+}
+
+/* Dark 主题下，设置页有一批独立浅色控件，需要单独压暗。 */
+body[data-theme="dark"] #pageSettings .settings-sheet {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--card) 94%, #17263b),
+        color-mix(in srgb, var(--surface) 92%, #09111d)
+    );
+    border-color: color-mix(in srgb, var(--accent) 10%, var(--border));
+}
+
+body[data-theme="dark"] #pageSettings .settings-grid > .settings-card + .settings-card,
+body[data-theme="dark"] #pageSettings .settings-top-grid,
+body[data-theme="dark"] #pageSettings .settings-top-grid .settings-top-item + .settings-top-item,
+body[data-theme="dark"] #pageSettings .settings-proxy-strip {
+    border-color: color-mix(in srgb, var(--border) 88%, rgba(255, 255, 255, 0.04));
+}
+
+body[data-theme="dark"] #pageSettings .settings-top-label {
+    color: color-mix(in srgb, var(--accent) 78%, #d9e8ff);
+}
+
+body[data-theme="dark"] #pageSettings .settings-inline-tip {
+    border-color: color-mix(in srgb, var(--accent) 16%, var(--border));
+    background: linear-gradient(180deg, #1a2739, #121d2d);
+    color: color-mix(in srgb, var(--muted) 88%, #d0dceb);
+}
+
+body[data-theme="dark"] #pageSettings .settings-inline-tip:hover,
+body[data-theme="dark"] #pageSettings .settings-inline-tip:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-strong));
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--accent) 18%, #1b2a40),
+        color-mix(in srgb, var(--accent) 10%, #121d2d)
+    );
+    color: var(--ink-strong);
+}
+
+body[data-theme="dark"] #pageSettings .settings-poll-item {
+    border-color: color-mix(in srgb, var(--accent) 10%, var(--border));
+    background: linear-gradient(180deg, #172436, #101927);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-theme="dark"] #pageSettings .settings-inline-input,
+body[data-theme="dark"] #pageSettings .settings-inline-number,
+body[data-theme="dark"] #pageSettings .settings-inline-select {
+    color: var(--ink);
+    border-color: color-mix(in srgb, var(--accent) 12%, var(--border));
+    background: linear-gradient(180deg, #101927, #0d1623);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body[data-theme="dark"] #pageSettings .settings-inline-input::placeholder,
+body[data-theme="dark"] #pageSettings .settings-inline-number::placeholder {
+    color: color-mix(in srgb, var(--muted) 82%, #becbdb);
+}
+
+body[data-theme="dark"] #pageSettings .settings-row-actions .hint {
+    border-color: color-mix(in srgb, var(--accent) 20%, var(--border));
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--accent) 18%, #1a273a),
+        color-mix(in srgb, var(--accent) 8%, #111b2a)
+    );
+    color: color-mix(in srgb, var(--accent) 74%, #d8e7ff);
+}
+
+body[data-theme="dark"] #pageSettings .switch-track {
+    border-color: color-mix(in srgb, var(--accent) 10%, var(--border-strong));
+    background: linear-gradient(180deg, #182535, #132031);
+}
+
+body[data-theme="dark"] #pageSettings .switch-thumb {
+    background: linear-gradient(180deg, #f4f8ff, #d7e3f6);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+body[data-theme="dark"] #pageSettings .switch-control input:checked + .switch-track {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--accent) 76%, #2e5fae),
+        color-mix(in srgb, var(--accent) 68%, #1d4584)
+    );
+    border-color: color-mix(in srgb, var(--accent) 42%, #8fc4ff);
 }
