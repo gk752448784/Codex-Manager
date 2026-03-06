@@ -100,6 +100,7 @@ export const dom = {
   confirmCancel: byId("confirmCancel"),
   addAccountBtn: byId("addAccount"),
   importAccountsBtn: byId("importAccounts"),
+  importAccountsFolderBtn: byId("importAccountsFolder"),
   importAccountsInput: byId("importAccountsInput"),
   removeUnavailableFreeBtn: byId("removeUnavailableFree"),
   exportAccountsBtn: byId("exportAccounts"),

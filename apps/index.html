@@ -190,7 +190,14 @@
                                         class="secondary"
                                         type="button"
                                     >
-                                        导入账号
+                                        批量导入
+                                    </button>
+                                    <button
+                                        id="importAccountsFolder"
+                                        class="secondary"
+                                        type="button"
+                                    >
+                                        按文件夹导入
                                     </button>
 
                                     <button id="refreshAll" type="button">
@@ -331,14 +338,18 @@
                     <div class="panel settings-sheet">
                         <div class="settings-grid">
                             <div class="settings-top-grid">
-                                <div class="settings-top-item settings-top-item-update">
+                                <div
+                                    class="settings-top-item settings-top-item-update"
+                                >
                                     <label
                                         class="hint settings-field-label settings-top-label"
                                         for="autoCheckUpdate"
                                     >
                                         <span>更新设置</span>
                                     </label>
-                                    <div class="settings-top-main settings-row-actions">
+                                    <div
+                                        class="settings-top-main settings-row-actions"
+                                    >
                                         <label
                                             class="update-auto-check switch-control"
                                             for="autoCheckUpdate"
@@ -368,7 +379,9 @@
                                             尚未检查更新
                                         </div>
                                     </div>
-                                    <div class="settings-top-aside settings-row-actions">
+                                    <div
+                                        class="settings-top-aside settings-row-actions"
+                                    >
                                         <button
                                             id="checkUpdate"
                                             class="secondary"
@@ -379,7 +392,9 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-top-item settings-top-item-gateway">
+                                <div
+                                    class="settings-top-item settings-top-item-gateway"
+                                >
                                     <label
                                         class="hint settings-field-label settings-field-label-with-tip settings-top-label"
                                         for="routeStrategySelect"
@@ -395,7 +410,9 @@
                                             >?</span
                                         >
                                     </label>
-                                    <div class="settings-top-main settings-row-actions">
+                                    <div
+                                        class="settings-top-main settings-row-actions"
+                                    >
                                         <label
                                             class="update-auto-check switch-control"
                                             for="cpaNoCookieHeaderMode"
@@ -428,7 +445,9 @@
                                             </span>
                                         </label>
                                     </div>
-                                    <div class="settings-top-aside settings-row-actions">
+                                    <div
+                                        class="settings-top-aside settings-row-actions"
+                                    >
                                         <select
                                             id="routeStrategySelect"
                                             class="inline-select settings-inline-select"
@@ -443,14 +462,18 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-top-item settings-top-item-window">
+                                <div
+                                    class="settings-top-item settings-top-item-window"
+                                >
                                     <label
                                         class="hint settings-field-label settings-top-label"
                                         for="closeToTrayOnClose"
                                     >
                                         <span>窗口行为</span>
                                     </label>
-                                    <div class="settings-top-main settings-row-actions">
+                                    <div
+                                        class="settings-top-main settings-row-actions"
+                                    >
                                         <label
                                             class="update-auto-check switch-control"
                                             for="closeToTrayOnClose"
@@ -470,7 +493,9 @@
                                             <span>关闭时最小化到托盘</span>
                                         </label>
                                     </div>
-                                    <div class="settings-top-aside settings-row-actions">
+                                    <div
+                                        class="settings-top-aside settings-row-actions"
+                                    >
                                         <div class="hint">
                                             默认关闭：点击关闭会直接退出应用。
                                         </div>
@@ -487,7 +512,9 @@
                                     >
                                         <span>视觉性能</span>
                                     </label>
-                                    <div class="settings-top-main settings-row-actions">
+                                    <div
+                                        class="settings-top-main settings-row-actions"
+                                    >
                                         <label
                                             class="update-auto-check switch-control"
                                             for="lowTransparencyMode"
@@ -507,7 +534,9 @@
                                             <span>性能模式 / 低透明度</span>
                                         </label>
                                     </div>
-                                    <div class="settings-top-aside settings-row-actions">
+                                    <div
+                                        class="settings-top-aside settings-row-actions"
+                                    >
                                         <div class="hint">
                                             关闭 blur、backdrop-filter
                                             等高成本效果。
@@ -517,7 +546,9 @@
                             </div>
 
                             <div class="settings-proxy-strip">
-                                <div class="settings-top-item settings-top-item-proxy">
+                                <div
+                                    class="settings-top-item settings-top-item-proxy"
+                                >
                                     <label
                                         class="hint settings-field-label settings-field-label-with-tip settings-top-label"
                                         for="upstreamProxyUrlInput"
@@ -540,7 +571,9 @@
                                             placeholder="http://127.0.0.1:7890"
                                         />
                                     </div>
-                                    <div class="settings-top-aside settings-row-actions">
+                                    <div
+                                        class="settings-top-aside settings-row-actions"
+                                    >
                                         <button
                                             id="upstreamProxySave"
                                             class="secondary"
@@ -548,7 +581,10 @@
                                         >
                                             保存代理
                                         </button>
-                                        <div id="upstreamProxyHint" class="hint">
+                                        <div
+                                            id="upstreamProxyHint"
+                                            class="hint"
+                                        >
                                             保存后立即生效。
                                         </div>
                                     </div>

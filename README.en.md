@@ -13,7 +13,12 @@
 A local desktop + service toolkit for managing a Codex-compatible ChatGPT account pool, usage, and platform keys, with a built-in local gateway.
 
 ## Recent Changes
-### 2026-03-03 (v0.1.4, latest)
+### 2026-03-06 (v0.1.5, latest)
+- Added "Import by Folder": the desktop app can now pick a directory, recursively scan `.json` files inside it, and bulk-import accounts.
+- Reworked the top area of the Settings page into a consistent three-column row layout, with the upstream proxy row aligned to the same pattern.
+- OpenAI upstream proxy settings remain directly editable in Settings and still apply immediately after saving.
+
+### 2026-03-03 (v0.1.4)
 - Consolidated account action buttons into a single "Account Actions" dropdown to reduce toolbar clutter.
 - Added "Remove unavailable Free accounts": bulk cleanup for accounts matched as unavailable + free plan, with summary counts (scanned/skipped/deleted).
 - Added "Export users": choose a local folder and export one JSON file per account.
@@ -22,6 +27,7 @@ A local desktop + service toolkit for managing a Codex-compatible ChatGPT accoun
 
 ## Features
 - Account pool management: group, tag, sort, note
+- Bulk import / export: supports multi-file import, desktop-only recursive folder import for JSON files, and one-file-per-account export
 - Usage dashboard: supports 5-hour + 7-day dual windows, and accounts that only return a 7-day single window (for example free weekly quota)
 - OAuth login: browser flow + manual callback parsing
 - Platform keys: create, disable, delete, bind model
@@ -62,6 +68,11 @@ A local desktop + service toolkit for managing a Codex-compatible ChatGPT accoun
 2. Add accounts in Account Management and finish OAuth.
 3. If callback fails, paste callback URL into manual parser.
 4. Refresh usage and verify account status.
+
+## Import / Export Accounts
+- `Bulk Import`: choose multiple `.json/.txt` files and import them in one run.
+- `Import by Folder` (desktop only): choose a directory and recursively import all `.json` files under it; empty files are skipped automatically.
+- `Export Users`: choose a folder and export accounts as one JSON file per account for backup or migration.
 
 ## Service Edition (Headless service + Web UI, no desktop runtime)
 1. Download `CodexManager-service-<platform>-<arch>.zip` from the Release page and unzip.
@@ -200,7 +211,7 @@ Parameters (with defaults):
 Use this to bump release version in one command instead of editing multiple files manually.
 
 ```powershell
-pwsh -NoLogo -NoProfile -File scripts/bump-version.ps1 -Version 0.1.4
+pwsh -NoLogo -NoProfile -File scripts/bump-version.ps1 -Version 0.1.5
 ```
 
 It updates:

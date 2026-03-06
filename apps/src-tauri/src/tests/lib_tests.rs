@@ -1,7 +1,10 @@
   use super::*;
+  use std::fs;
   use std::io::{Read, Write};
   use std::net::TcpListener;
+  use std::path::PathBuf;
   use std::time::Duration;
+  use std::time::{SystemTime, UNIX_EPOCH};
 
   #[test]
   fn normalize_addr_defaults_to_localhost() {
@@ -117,4 +120,28 @@
       token,
       PathBuf::from("C:/Users/test/AppData/Roaming/com.codexmanager.desktop/codexmanager.rpc-token")
     );
+  }
+
+  #[test]
+  fn read_account_import_contents_from_directory_collects_nested_json_files() {
+    let unique = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .expect("clock")
+      .as_nanos();
+    let root = std::env::temp_dir().join(format!("codexmanager-import-{unique}"));
+    let nested = root.join("nested");
+    fs::create_dir_all(&nested).expect("create nested dir");
+    fs::write(root.join("a.json"), r#"{"id":"a"}"#).expect("write a.json");
+    fs::write(root.join("ignore.txt"), "ignore").expect("write ignore.txt");
+    fs::write(nested.join("b.JSON"), r#"{"id":"b"}"#).expect("write b.JSON");
+    fs::write(nested.join("empty.json"), "   ").expect("write empty.json");
+
+    let (files, contents) = read_account_import_contents_from_directory(&root).expect("read import contents");
+
+    assert_eq!(files.len(), 3);
+    assert_eq!(contents.len(), 2);
+    assert!(contents.iter().any(|item| item.contains(r#""id":"a""#)));
+    assert!(contents.iter().any(|item| item.contains(r#""id":"b""#)));
+
+    fs::remove_dir_all(&root).expect("cleanup temp dir");
   }

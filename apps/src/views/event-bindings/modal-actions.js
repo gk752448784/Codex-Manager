@@ -22,6 +22,7 @@ export function bindModalActionEvents({
   refreshApiModelsNow,
   populateApiKeyModelSelect,
   importAccountsFromFiles,
+  importAccountsFromDirectory,
   deleteUnavailableFreeAccounts,
   exportAccountsByFile,
 }) {
@@ -72,6 +73,11 @@ export function bindModalActionEvents({
       event.target.value = "";
     });
   }
+  if (dom.importAccountsFolderBtn) {
+    dom.importAccountsFolderBtn.addEventListener("click", () => {
+      void importAccountsFromDirectory?.();
+    });
+  }
   if (dom.removeUnavailableFreeBtn) {
     dom.removeUnavailableFreeBtn.addEventListener("click", () => {
       void deleteUnavailableFreeAccounts?.();
@@ -86,6 +92,7 @@ export function bindModalActionEvents({
   const closeAccountOpsButtons = [
     dom.addAccountBtn,
     dom.importAccountsBtn,
+    dom.importAccountsFolderBtn,
     dom.removeUnavailableFreeBtn,
     dom.exportAccountsBtn,
     dom.refreshAll,

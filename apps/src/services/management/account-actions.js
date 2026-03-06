@@ -283,6 +283,47 @@ export function createAccountActions({
     });
   }
 
+  async function submitImportedContents(contents, sourceLabel = "") {
+    const normalizedContents = Array.from(contents || [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .map((item) => normalizeImportContentForCompatibility(item));
+    if (!normalizedContents.length) {
+      showToast("未读取到可导入内容", "error");
+      return;
+    }
+
+    await enqueueAccountOp(async () => {
+      await nextPaintTick();
+      let res = null;
+      try {
+        res = await api.serviceAccountImport(normalizedContents);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+        return;
+      }
+      if (res && res.error) {
+        showToast(res.error || "导入失败", "error");
+        return;
+      }
+      const total = Number(res?.total || 0);
+      const created = Number(res?.created || 0);
+      const updated = Number(res?.updated || 0);
+      const failed = Number(res?.failed || 0);
+
+      await refreshAccountsSection();
+      const sourceSuffix = sourceLabel ? `（${sourceLabel}）` : "";
+      showToast(`导入完成${sourceSuffix}：共${total}，新增${created}，更新${updated}，失败${failed}`);
+      await nextPaintTick();
+      if (failed > 0 && Array.isArray(res?.errors) && res.errors.length > 0) {
+        const first = res.errors[0];
+        const index = Number(first?.index || 0);
+        const message = String(first?.message || "未知错误");
+        showToast(`首个失败项 #${index}: ${message}`, "error");
+      }
+    });
+  }
+
   async function importAccountsFromFiles(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -312,7 +353,7 @@ export function createAccountActions({
       }
       const trimmed = String(text || "").trim();
       if (trimmed) {
-        contents.push(normalizeImportContentForCompatibility(trimmed));
+        contents.push(trimmed);
       }
       if ((index + 1) % yieldEvery === 0) {
         await nextPaintTick();
@@ -320,40 +361,43 @@ export function createAccountActions({
     }
 
     await nextPaintTick();
+    await submitImportedContents(contents, `${files.length} 个文件`);
+  }
 
+  async function importAccountsFromDirectory() {
+    const ok = await ensureConnected();
+    if (!ok) return;
+
+    let result = null;
+    try {
+      result = await api.serviceAccountImportByDirectory();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
+      return;
+    }
+    if (result?.canceled) {
+      showToast("已取消导入");
+      return;
+    }
+    const contents = Array.isArray(result?.contents) ? result.contents : [];
+    const fileCount = Number(result?.fileCount || contents.length || 0);
+    const directoryPath = String(result?.directoryPath || "").trim();
     if (!contents.length) {
-      showToast("未读取到可导入内容", "error");
+      const pathHint = directoryPath ? `：${directoryPath}` : "";
+      showToast(`所选文件夹下未找到可导入的 JSON 文件${pathHint}`, "error");
       return;
     }
 
-    await enqueueAccountOp(async () => {
-      await nextPaintTick();
-      const res = await api.serviceAccountImport(contents);
-      if (res && res.error) {
-        showToast(res.error || "导入失败", "error");
-        return;
-      }
-      const total = Number(res?.total || 0);
-      const created = Number(res?.created || 0);
-      const updated = Number(res?.updated || 0);
-      const failed = Number(res?.failed || 0);
-
-      await refreshAccountsSection();
-      showToast(`导入完成：共${total}，新增${created}，更新${updated}，失败${failed}`);
-      await nextPaintTick();
-      if (failed > 0 && Array.isArray(res?.errors) && res.errors.length > 0) {
-        const first = res.errors[0];
-        const index = Number(first?.index || 0);
-        const message = String(first?.message || "未知错误");
-        showToast(`首个失败项 #${index}: ${message}`, "error");
-      }
-    });
+    showToast(`正在导入文件夹（${fileCount} 个 JSON 文件）...`);
+    await nextPaintTick();
+    await submitImportedContents(contents, `${fileCount} 个 JSON 文件`);
   }
 
   return {
     updateAccountSort,
     deleteAccount,
     importAccountsFromFiles,
+    importAccountsFromDirectory,
     setManualPreferredAccount,
     deleteUnavailableFreeAccounts,
     exportAccountsByFile,

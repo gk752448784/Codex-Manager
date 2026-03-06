@@ -56,6 +56,47 @@ async fn rpc_call_in_background(
     .map_err(|err| format!("{method_name} task failed: {err}"))?
 }
 
+fn collect_json_files_recursively(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
+  let entries = fs::read_dir(root)
+    .map_err(|err| format!("read dir failed ({}): {err}", root.display()))?;
+  for entry in entries {
+    let entry = entry.map_err(|err| format!("read dir entry failed ({}): {err}", root.display()))?;
+    let path = entry.path();
+    if path.is_dir() {
+      collect_json_files_recursively(&path, output)?;
+      continue;
+    }
+    let is_json = path
+      .extension()
+      .and_then(|value| value.to_str())
+      .map(|value| value.eq_ignore_ascii_case("json"))
+      .unwrap_or(false);
+    if is_json {
+      output.push(path);
+    }
+  }
+  Ok(())
+}
+
+fn read_account_import_contents_from_directory(
+  root: &Path,
+) -> Result<(Vec<PathBuf>, Vec<String>), String> {
+  let mut json_files = Vec::new();
+  collect_json_files_recursively(root, &mut json_files)?;
+  json_files.sort();
+
+  let mut contents = Vec::with_capacity(json_files.len());
+  for path in &json_files {
+    let text = fs::read_to_string(path)
+      .map_err(|err| format!("read json file failed ({}): {err}", path.display()))?;
+    let trimmed = text.trim();
+    if !trimmed.is_empty() {
+      contents.push(trimmed.to_string());
+    }
+  }
+  Ok((json_files, contents))
+}
+
 #[tauri::command]
 async fn service_start(app: tauri::AppHandle, addr: String) -> Result<(), String> {
   let addr = normalize_addr(&addr)?;
@@ -131,6 +172,38 @@ async fn service_account_import(
   }
   let params = serde_json::json!({ "contents": payload_contents });
   rpc_call_in_background("account/import", addr, Some(params)).await
+}
+
+#[tauri::command]
+async fn service_account_import_by_directory(
+  _addr: Option<String>,
+) -> Result<serde_json::Value, String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let selected_dir = FileDialog::new()
+      .set_title("选择账号导入目录")
+      .pick_folder();
+    let Some(dir_path) = selected_dir else {
+      return Ok(serde_json::json!({
+        "result": {
+          "ok": true,
+          "canceled": true
+        }
+      }));
+    };
+
+    let (json_files, contents) = read_account_import_contents_from_directory(&dir_path)?;
+    Ok(serde_json::json!({
+      "result": {
+        "ok": true,
+        "canceled": false,
+        "directoryPath": dir_path.to_string_lossy().to_string(),
+        "fileCount": json_files.len(),
+        "contents": contents
+      }
+    }))
+  })
+  .await
+  .map_err(|err| format!("service_account_import_by_directory task failed: {err}"))?
 }
 
 #[tauri::command]
@@ -558,6 +631,7 @@ pub fn run() {
       service_account_delete_unavailable_free,
       service_account_update,
       service_account_import,
+      service_account_import_by_directory,
       service_account_export_by_account_files,
       local_account_delete,
       service_usage_read,
