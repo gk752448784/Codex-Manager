@@ -4,14 +4,13 @@ use super::{
     extract_openai_completed_output_text, extract_sse_frame_payload, inspect_sse_frame,
     is_response_completed_event_name, map_chunk_has_chat_text, mark_collector_terminal_success,
     merge_usage, normalize_chat_chunk_delta_role, parse_sse_frame_json,
-    should_skip_chat_live_text_event, update_openai_stream_meta, Arc, BufRead, BufReader, Cursor,
-    Mutex, OpenAIStreamMeta, PassthroughSseCollector, Read, SseTerminal, ToolNameRestoreMap,
-    Value,
+    should_skip_chat_live_text_event, sse_keepalive_interval, update_openai_stream_meta, Arc,
+    Cursor, Mutex, OpenAIStreamMeta, PassthroughSseCollector, Read, SseKeepAliveFrame,
+    SseTerminal, ToolNameRestoreMap, UpstreamSseFramePump, UpstreamSseFramePumpItem, Value,
 };
 
 pub(crate) struct OpenAIChatCompletionsSseReader {
-    upstream: BufReader<reqwest::blocking::Response>,
-    pending_frame_lines: Vec<String>,
+    upstream: UpstreamSseFramePump,
     out_cursor: Cursor<Vec<u8>>,
     usage_collector: Arc<Mutex<PassthroughSseCollector>>,
     tool_name_restore_map: Option<ToolNameRestoreMap>,
@@ -28,8 +27,7 @@ impl OpenAIChatCompletionsSseReader {
         tool_name_restore_map: Option<ToolNameRestoreMap>,
     ) -> Self {
         Self {
-            upstream: BufReader::new(upstream),
-            pending_frame_lines: Vec::new(),
+            upstream: UpstreamSseFramePump::new(upstream),
             out_cursor: Cursor::new(Vec::new()),
             usage_collector,
             tool_name_restore_map,
@@ -145,47 +143,54 @@ impl OpenAIChatCompletionsSseReader {
     }
 
     fn next_chunk(&mut self) -> std::io::Result<Vec<u8>> {
-        let mut line = String::new();
         loop {
-            line.clear();
-            let read = self.upstream.read_line(&mut line)?;
-            if read == 0 {
-                if !self.pending_frame_lines.is_empty() {
-                    let frame = std::mem::take(&mut self.pending_frame_lines);
+            match self.upstream.recv_timeout(sse_keepalive_interval()) {
+                Ok(UpstreamSseFramePumpItem::Frame(frame)) => {
                     self.update_usage_from_frame(&frame);
                     let mapped = self.map_frame_to_chat_completions_sse(&frame);
                     if !mapped.is_empty() {
                         return Ok(mapped);
                     }
-                }
-                if let Some(fallback) = self.try_build_chat_fallback_stream(true) {
-                    return Ok(fallback);
-                }
-                if let Ok(mut collector) = self.usage_collector.lock() {
-                    if !collector.saw_terminal {
-                        // 中文注释：对齐最新 Codex SSE 语义：
-                        // 只有 response.completed / response.done / [DONE] 才算正常结束。
-                        collector.terminal_error.get_or_insert_with(|| {
-                            "stream disconnected before completion".to_string()
-                        });
-                    }
-                }
-                self.finished = true;
-                return Ok(Vec::new());
-            }
-            if line == "\n" || line == "\r\n" {
-                if self.pending_frame_lines.is_empty() {
                     continue;
                 }
-                let frame = std::mem::take(&mut self.pending_frame_lines);
-                self.update_usage_from_frame(&frame);
-                let mapped = self.map_frame_to_chat_completions_sse(&frame);
-                if !mapped.is_empty() {
-                    return Ok(mapped);
+                Ok(UpstreamSseFramePumpItem::Eof) => {
+                    if let Some(fallback) = self.try_build_chat_fallback_stream(true) {
+                        return Ok(fallback);
+                    }
+                    if let Ok(mut collector) = self.usage_collector.lock() {
+                        if !collector.saw_terminal {
+                            // 中文注释：对齐最新 Codex SSE 语义：
+                            // 只有 response.completed / response.done / [DONE] 才算正常结束。
+                            collector.terminal_error.get_or_insert_with(|| {
+                                "stream disconnected before completion".to_string()
+                            });
+                        }
+                    }
+                    self.finished = true;
+                    return Ok(Vec::new());
                 }
-                continue;
+                Ok(UpstreamSseFramePumpItem::Error(err)) => {
+                    if let Ok(mut collector) = self.usage_collector.lock() {
+                        collector
+                            .terminal_error
+                            .get_or_insert_with(|| format!("stream read failed: {err}"));
+                    }
+                    self.finished = true;
+                    return Ok(Vec::new());
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    return Ok(SseKeepAliveFrame::OpenAIChatCompletions.bytes().to_vec());
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    if let Ok(mut collector) = self.usage_collector.lock() {
+                        collector
+                            .terminal_error
+                            .get_or_insert_with(|| "stream reader disconnected unexpectedly".to_string());
+                    }
+                    self.finished = true;
+                    return Ok(Vec::new());
+                }
             }
-            self.pending_frame_lines.push(line.clone());
         }
     }
 }

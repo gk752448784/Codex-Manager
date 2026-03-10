@@ -23,6 +23,7 @@ use openai::{
 
 pub(super) fn reload_from_env() {
     reload_output_text_from_env();
+    stream_readers::reload_from_env();
 }
 
 fn push_trace_id_header(headers: &mut Vec<Header>, trace_id: &str) {
@@ -47,6 +48,7 @@ pub(super) fn respond_with_upstream(
     upstream: reqwest::blocking::Response,
     inflight_guard: super::AccountInFlightGuard,
     response_adapter: super::ResponseAdapter,
+    request_path: &str,
     tool_name_restore_map: Option<&super::ToolNameRestoreMap>,
     is_stream: bool,
     trace_id: Option<&str>,
@@ -56,6 +58,7 @@ pub(super) fn respond_with_upstream(
         upstream,
         inflight_guard,
         response_adapter,
+        request_path,
         tool_name_restore_map,
         is_stream,
         trace_id,
@@ -63,7 +66,7 @@ pub(super) fn respond_with_upstream(
 }
 pub(super) use stream_readers::{
     AnthropicSseReader, OpenAIChatCompletionsSseReader, OpenAICompletionsSseReader,
-    PassthroughSseCollector, PassthroughSseUsageReader,
+    PassthroughSseCollector, PassthroughSseUsageReader, SseKeepAliveFrame,
 };
 
 #[cfg(test)]

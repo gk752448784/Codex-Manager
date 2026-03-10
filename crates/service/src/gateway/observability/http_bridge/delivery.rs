@@ -10,7 +10,8 @@ use super::{
     collect_non_stream_json_from_sse_bytes, extract_error_hint_from_body, looks_like_sse_payload,
     merge_usage, parse_usage_from_json, push_trace_id_header, usage_has_signal, AnthropicSseReader,
     OpenAIChatCompletionsSseReader, OpenAICompletionsSseReader, PassthroughSseCollector,
-    PassthroughSseUsageReader, UpstreamResponseBridgeResult, UpstreamResponseUsage,
+    PassthroughSseUsageReader, SseKeepAliveFrame, UpstreamResponseBridgeResult,
+    UpstreamResponseUsage,
 };
 
 pub(crate) fn respond_with_upstream(
@@ -18,10 +19,12 @@ pub(crate) fn respond_with_upstream(
     upstream: reqwest::blocking::Response,
     _inflight_guard: super::super::AccountInFlightGuard,
     response_adapter: ResponseAdapter,
+    request_path: &str,
     tool_name_restore_map: Option<&ToolNameRestoreMap>,
     is_stream: bool,
     trace_id: Option<&str>,
 ) -> Result<UpstreamResponseBridgeResult, String> {
+    let keepalive_frame = resolve_stream_keepalive_frame(response_adapter, request_path);
     match response_adapter {
         ResponseAdapter::Passthrough => {
             let upstream_content_type = upstream
@@ -132,7 +135,11 @@ pub(crate) fn respond_with_upstream(
                 let response = Response::new(
                     status,
                     headers,
-                    PassthroughSseUsageReader::new(upstream, Arc::clone(&usage_collector)),
+                    PassthroughSseUsageReader::new(
+                        upstream,
+                        Arc::clone(&usage_collector),
+                        keepalive_frame,
+                    ),
                     None,
                     None,
                 );
@@ -439,5 +446,26 @@ pub(crate) fn respond_with_upstream(
                 upstream_error_hint,
             })
         }
+    }
+}
+
+fn resolve_stream_keepalive_frame(
+    response_adapter: ResponseAdapter,
+    request_path: &str,
+) -> SseKeepAliveFrame {
+    match response_adapter {
+        ResponseAdapter::Passthrough => {
+            if request_path.starts_with("/v1/responses") {
+                SseKeepAliveFrame::OpenAIResponses
+            } else {
+                SseKeepAliveFrame::Comment
+            }
+        }
+        ResponseAdapter::OpenAIChatCompletionsSse => SseKeepAliveFrame::OpenAIChatCompletions,
+        ResponseAdapter::OpenAICompletionsSse => SseKeepAliveFrame::OpenAICompletions,
+        ResponseAdapter::AnthropicSse => SseKeepAliveFrame::Anthropic,
+        ResponseAdapter::OpenAIChatCompletionsJson
+        | ResponseAdapter::OpenAICompletionsJson
+        | ResponseAdapter::AnthropicJson => SseKeepAliveFrame::Comment,
     }
 }

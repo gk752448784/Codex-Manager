@@ -1,13 +1,14 @@
 use super::{
-    inspect_sse_frame, merge_usage, Arc, BufRead, BufReader, Cursor, Mutex,
-    PassthroughSseCollector, Read, SseTerminal,
+    inspect_sse_frame, merge_usage, sse_keepalive_interval, Arc, Cursor, Mutex,
+    PassthroughSseCollector, Read, SseKeepAliveFrame, SseTerminal, UpstreamSseFramePump,
+    UpstreamSseFramePumpItem,
 };
 
 pub(crate) struct PassthroughSseUsageReader {
-    upstream: BufReader<reqwest::blocking::Response>,
-    pending_frame_lines: Vec<String>,
+    upstream: UpstreamSseFramePump,
     out_cursor: Cursor<Vec<u8>>,
     usage_collector: Arc<Mutex<PassthroughSseCollector>>,
+    keepalive_frame: SseKeepAliveFrame,
     finished: bool,
 }
 
@@ -15,12 +16,13 @@ impl PassthroughSseUsageReader {
     pub(crate) fn new(
         upstream: reqwest::blocking::Response,
         usage_collector: Arc<Mutex<PassthroughSseCollector>>,
+        keepalive_frame: SseKeepAliveFrame,
     ) -> Self {
         Self {
-            upstream: BufReader::new(upstream),
-            pending_frame_lines: Vec::new(),
+            upstream: UpstreamSseFramePump::new(upstream),
             out_cursor: Cursor::new(Vec::new()),
             usage_collector,
+            keepalive_frame,
             finished: false,
         }
     }
@@ -44,32 +46,44 @@ impl PassthroughSseUsageReader {
     }
 
     fn next_chunk(&mut self) -> std::io::Result<Vec<u8>> {
-        let mut line = String::new();
-        let read = self.upstream.read_line(&mut line)?;
-        if read == 0 {
-            if !self.pending_frame_lines.is_empty() {
-                let frame = std::mem::take(&mut self.pending_frame_lines);
+        match self.upstream.recv_timeout(sse_keepalive_interval()) {
+            Ok(UpstreamSseFramePumpItem::Frame(frame)) => {
                 self.update_usage_from_frame(&frame);
+                Ok(frame.concat().into_bytes())
             }
-            if let Ok(mut collector) = self.usage_collector.lock() {
-                if !collector.saw_terminal {
+            Ok(UpstreamSseFramePumpItem::Eof) => {
+                if let Ok(mut collector) = self.usage_collector.lock() {
+                    if !collector.saw_terminal {
+                        collector
+                            .terminal_error
+                            .get_or_insert_with(|| "stream disconnected before completion".to_string());
+                    }
+                }
+                self.finished = true;
+                Ok(Vec::new())
+            }
+            Ok(UpstreamSseFramePumpItem::Error(err)) => {
+                if let Ok(mut collector) = self.usage_collector.lock() {
                     collector
                         .terminal_error
-                        .get_or_insert_with(|| "stream disconnected before completion".to_string());
+                        .get_or_insert_with(|| format!("stream read failed: {err}"));
                 }
+                self.finished = true;
+                Ok(Vec::new())
             }
-            self.finished = true;
-            return Ok(Vec::new());
-        }
-        if line == "\n" || line == "\r\n" {
-            if !self.pending_frame_lines.is_empty() {
-                let frame = std::mem::take(&mut self.pending_frame_lines);
-                self.update_usage_from_frame(&frame);
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                Ok(self.keepalive_frame.bytes().to_vec())
             }
-        } else {
-            self.pending_frame_lines.push(line.clone());
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                if let Ok(mut collector) = self.usage_collector.lock() {
+                    collector
+                        .terminal_error
+                        .get_or_insert_with(|| "stream reader disconnected unexpectedly".to_string());
+                }
+                self.finished = true;
+                Ok(Vec::new())
+            }
         }
-        Ok(line.into_bytes())
     }
 }
 

@@ -93,6 +93,7 @@ pub(super) fn finalize_upstream_response(
         response,
         inflight_guard,
         response_adapter,
+        path,
         Some(tool_name_restore_map),
         client_is_stream,
         Some(trace_id),

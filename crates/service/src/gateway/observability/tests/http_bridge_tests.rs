@@ -5,13 +5,43 @@ use super::{
     should_skip_chat_live_text_event, should_skip_completion_live_text_event,
     synthesize_chat_completion_sse_from_json, synthesize_completions_sse_from_json,
     OpenAIChatCompletionsSseReader, OpenAICompletionsSseReader, OpenAIStreamMeta,
-    PassthroughSseCollector,
+    PassthroughSseCollector, PassthroughSseUsageReader, SseKeepAliveFrame,
 };
 use serde_json::json;
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
+use std::time::Duration;
+
+static TEST_ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+fn test_env_guard() -> MutexGuard<'static, ()> {
+    TEST_ENV_MUTEX.lock().expect("lock http bridge test env mutex")
+}
+
+struct EnvGuard {
+    key: &'static str,
+    original: Option<std::ffi::OsString>,
+}
+
+impl EnvGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let original = std::env::var_os(key);
+        std::env::set_var(key, value);
+        Self { key, original }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        if let Some(value) = &self.original {
+            std::env::set_var(self.key, value);
+        } else {
+            std::env::remove_var(self.key);
+        }
+    }
+}
 
 fn open_mock_http_response(content_type: &str, body: &str) -> reqwest::blocking::Response {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock upstream");
@@ -34,6 +64,42 @@ fn open_mock_http_response(content_type: &str, body: &str) -> reqwest::blocking:
     let response = reqwest::blocking::get(format!("http://{addr}")).expect("request mock upstream");
     server.join().expect("join mock upstream server");
     response
+}
+
+fn open_streaming_mock_http_response(
+    content_type: &str,
+    chunks: &[(&str, u64)],
+) -> (reqwest::blocking::Response, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind streaming mock upstream");
+    let addr = listener.local_addr().expect("streaming mock upstream addr");
+    let content_type = content_type.to_string();
+    let chunks = chunks
+        .iter()
+        .map(|(chunk, delay_ms)| ((*chunk).to_string(), *delay_ms))
+        .collect::<Vec<_>>();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept mock client");
+        let mut request_buf = [0_u8; 2048];
+        let _ = stream.read(&mut request_buf);
+        let response_header = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nConnection: close\r\n\r\n"
+        );
+        stream
+            .write_all(response_header.as_bytes())
+            .expect("write streaming response headers");
+        stream.flush().expect("flush streaming response headers");
+        for (chunk, delay_ms) in chunks {
+            if delay_ms > 0 {
+                thread::sleep(Duration::from_millis(delay_ms));
+            }
+            stream
+                .write_all(chunk.as_bytes())
+                .expect("write streaming response chunk");
+            stream.flush().expect("flush streaming response chunk");
+        }
+    });
+    let response = reqwest::blocking::get(format!("http://{addr}")).expect("request mock upstream");
+    (response, server)
 }
 
 #[test]
@@ -617,4 +683,69 @@ fn openai_completions_sse_reader_requires_terminal_event_before_success() {
         collector.terminal_error.as_deref(),
         Some("stream disconnected before completion")
     );
+}
+
+#[test]
+fn passthrough_sse_reader_emits_keepalive_for_responses_stream() {
+    let _guard = test_env_guard();
+    let _keepalive_guard = EnvGuard::set("CODEXMANAGER_SSE_KEEPALIVE_INTERVAL_MS", "15");
+    super::reload_from_env();
+
+    let (upstream, server) = open_streaming_mock_http_response(
+        "text/event-stream",
+        &[
+            (
+                "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_keepalive_1\"}}\n\n",
+                50,
+            ),
+            ("data: [DONE]\n\n", 0),
+        ],
+    );
+    let usage_collector = Arc::new(Mutex::new(PassthroughSseCollector::default()));
+    let mut reader = PassthroughSseUsageReader::new(
+        upstream,
+        Arc::clone(&usage_collector),
+        SseKeepAliveFrame::OpenAIResponses,
+    );
+    let mut mapped = String::new();
+    reader
+        .read_to_string(&mut mapped)
+        .expect("read passthrough sse");
+    server.join().expect("join streaming mock upstream");
+    super::reload_from_env();
+
+    assert!(mapped.contains("\"type\":\"codexmanager.keepalive\""));
+    assert!(mapped.contains("\"type\":\"response.created\""));
+    assert!(mapped.contains("data: [DONE]"));
+}
+
+#[test]
+fn openai_chat_sse_reader_emits_keepalive_chunk_during_idle_gap() {
+    let _guard = test_env_guard();
+    let _keepalive_guard = EnvGuard::set("CODEXMANAGER_SSE_KEEPALIVE_INTERVAL_MS", "15");
+    super::reload_from_env();
+
+    let (upstream, server) = open_streaming_mock_http_response(
+        "text/event-stream",
+        &[
+            (
+                "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_chat_keepalive_1\",\"created\":1,\"model\":\"gpt-5.3-codex\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"hello\"}]}]}}\n\n",
+                50,
+            ),
+            ("data: [DONE]\n\n", 0),
+        ],
+    );
+    let usage_collector = Arc::new(Mutex::new(PassthroughSseCollector::default()));
+    let mut reader =
+        OpenAIChatCompletionsSseReader::new(upstream, Arc::clone(&usage_collector), None);
+    let mut mapped = String::new();
+    reader
+        .read_to_string(&mut mapped)
+        .expect("read chat completions sse");
+    server.join().expect("join streaming mock upstream");
+    super::reload_from_env();
+
+    assert!(mapped.contains("\"id\":\"cm_keepalive\""));
+    assert!(mapped.contains("\"object\":\"chat.completion.chunk\""));
+    assert!(mapped.contains("data: [DONE]"));
 }

@@ -1,11 +1,11 @@
 use super::{
     append_output_text, collect_output_text_from_event_fields, collect_response_output_text, json,
-    Arc, BufRead, BufReader, Cursor, Map, Mutex, Read, UpstreamResponseUsage, Value,
+    sse_keepalive_interval, Arc, Cursor, Map, Mutex, Read, SseKeepAliveFrame,
+    UpstreamResponseUsage, UpstreamSseFramePump, UpstreamSseFramePumpItem, Value,
 };
 
 pub(crate) struct AnthropicSseReader {
-    upstream: BufReader<reqwest::blocking::Response>,
-    pending_frame_lines: Vec<String>,
+    upstream: UpstreamSseFramePump,
     out_cursor: Cursor<Vec<u8>>,
     state: AnthropicSseState,
     usage_collector: Arc<Mutex<UpstreamResponseUsage>>,
@@ -34,8 +34,7 @@ impl AnthropicSseReader {
         usage_collector: Arc<Mutex<UpstreamResponseUsage>>,
     ) -> Self {
         Self {
-            upstream: BufReader::new(upstream),
-            pending_frame_lines: Vec::new(),
+            upstream: UpstreamSseFramePump::new(upstream),
             out_cursor: Cursor::new(Vec::new()),
             state: AnthropicSseState::default(),
             usage_collector,
@@ -43,22 +42,28 @@ impl AnthropicSseReader {
     }
 
     fn next_chunk(&mut self) -> std::io::Result<Vec<u8>> {
-        let mut line = String::new();
         loop {
-            line.clear();
-            let read = self.upstream.read_line(&mut line)?;
-            if read == 0 {
-                return Ok(self.finish_stream());
-            }
-            if line == "\n" || line == "\r\n" {
-                let frame = std::mem::take(&mut self.pending_frame_lines);
-                let mapped = self.process_sse_frame(&frame);
-                if !mapped.is_empty() {
-                    return Ok(mapped);
+            match self.upstream.recv_timeout(sse_keepalive_interval()) {
+                Ok(UpstreamSseFramePumpItem::Frame(frame)) => {
+                    let mapped = self.process_sse_frame(&frame);
+                    if !mapped.is_empty() {
+                        return Ok(mapped);
+                    }
+                    continue;
                 }
-                continue;
+                Ok(UpstreamSseFramePumpItem::Eof) => {
+                    return Ok(self.finish_stream());
+                }
+                Ok(UpstreamSseFramePumpItem::Error(_err)) => {
+                    return Ok(self.finish_stream());
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    return Ok(SseKeepAliveFrame::Anthropic.bytes().to_vec());
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    return Ok(self.finish_stream());
+                }
             }
-            self.pending_frame_lines.push(line.clone());
         }
     }
 

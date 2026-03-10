@@ -362,6 +362,7 @@ pub(in super::super) fn proxy_azure_request(
         upstream,
         inflight_guard,
         response_adapter,
+        path,
         Some(tool_name_restore_map),
         is_stream,
         Some(trace_id),
