@@ -21,6 +21,7 @@ import {
   appendRequestLogBatch,
   isNearBottom,
 } from "./requestlogs/virtual-list.js";
+import { createRequestLogBindings } from "./requestlogs/events.js";
 
 const REQUEST_LOG_BATCH_SIZE = 80;
 const REQUEST_LOG_DOM_LIMIT = 240;
@@ -72,117 +73,23 @@ function appendRequestLogBatchLocal() {
   });
 }
 
-function resolveRequestLogScroller(rowsEl) {
-  if (!rowsEl || typeof rowsEl.closest !== "function") {
-    return null;
-  }
-  return rowsEl.closest(".requestlog-wrap");
-}
-
-async function onRequestLogRowsClick(event) {
-  const target = event?.target;
-  if (!target || typeof target.closest !== "function") {
-    return;
-  }
-  const copyBtn = target.closest("button.path-copy");
-  if (!copyBtn || !dom.requestLogRows || !dom.requestLogRows.contains(copyBtn)) {
-    return;
-  }
-  const index = Number(copyBtn.dataset.logIndex);
-  if (!Number.isInteger(index)) {
-    return;
-  }
-  const rowItem = requestLogWindowState.filtered[index];
-  const textToCopy = resolveDisplayRequestPath(rowItem) || rowItem?.requestPath || "";
-  if (!textToCopy) {
-    return;
-  }
-  const ok = await copyText(textToCopy);
-  copyBtn.textContent = ok ? "已复制" : "失败";
-  const token = String(Date.now());
-  copyBtn.dataset.copyToken = token;
-  setTimeout(() => {
-    if (copyBtn.dataset.copyToken !== token) return;
-    copyBtn.textContent = "复制";
-  }, 900);
-}
-
-function onRequestLogScroll() {
-  if (requestLogWindowState.scrollTickHandle != null) {
-    return;
-  }
-  const flush = () => {
-    requestLogWindowState.scrollTickHandle = null;
-    requestLogWindowState.scrollTickMode = "";
-    if (!isNearBottom(requestLogWindowState.boundScrollerEl, REQUEST_LOG_SCROLL_BUFFER)) {
-      return;
-    }
-    appendNearBottomBatches({
-      scroller: requestLogWindowState.boundScrollerEl,
-      maxBatches: REQUEST_LOG_NEAR_BOTTOM_MAX_BATCHES,
-      scrollBuffer: REQUEST_LOG_SCROLL_BUFFER,
-      appendRequestLogBatch: appendRequestLogBatchLocal,
-    });
-  };
-  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-    requestLogWindowState.scrollTickMode = "raf";
-    requestLogWindowState.scrollTickHandle = window.requestAnimationFrame(flush);
-    return;
-  }
-  flush();
-}
-
-function cancelPendingScrollTick() {
-  if (requestLogWindowState.scrollTickHandle == null) {
-    return;
-  }
-  if (
-    requestLogWindowState.scrollTickMode === "raf"
-    && typeof window !== "undefined"
-    && typeof window.cancelAnimationFrame === "function"
-  ) {
-    window.cancelAnimationFrame(requestLogWindowState.scrollTickHandle);
-  } else {
-    clearTimeout(requestLogWindowState.scrollTickHandle);
-  }
-  requestLogWindowState.scrollTickHandle = null;
-  requestLogWindowState.scrollTickMode = "";
-}
-
-function ensureRequestLogBindings() {
-  const rowsEl = dom.requestLogRows;
-  if (!rowsEl || typeof rowsEl.addEventListener !== "function") {
-    return;
-  }
-  if (requestLogWindowState.boundRowsEl && requestLogWindowState.boundRowsEl !== rowsEl) {
-    requestLogWindowState.boundRowsEl.removeEventListener("click", onRequestLogRowsClick);
-  }
-  if (requestLogWindowState.boundRowsEl !== rowsEl) {
-    rowsEl.addEventListener("click", onRequestLogRowsClick);
-    requestLogWindowState.boundRowsEl = rowsEl;
-  }
-  const scroller = resolveRequestLogScroller(rowsEl);
-  if (
-    requestLogWindowState.boundScrollerEl &&
-    requestLogWindowState.boundScrollerEl !== scroller
-  ) {
-    requestLogWindowState.boundScrollerEl.removeEventListener("scroll", onRequestLogScroll);
-    cancelPendingScrollTick();
-  }
-  if (scroller && requestLogWindowState.boundScrollerEl !== scroller) {
-    scroller.addEventListener("scroll", onRequestLogScroll, { passive: true });
-    requestLogWindowState.boundScrollerEl = scroller;
-  } else if (!scroller) {
-    cancelPendingScrollTick();
-    requestLogWindowState.boundScrollerEl = null;
-  }
-}
+const requestLogBindings = createRequestLogBindings({
+  dom,
+  windowState: requestLogWindowState,
+  copyText,
+  resolveDisplayRequestPath,
+  isNearBottom,
+  appendNearBottomBatches,
+  scrollBuffer: REQUEST_LOG_SCROLL_BUFFER,
+  nearBottomMaxBatches: REQUEST_LOG_NEAR_BOTTOM_MAX_BATCHES,
+  appendRequestLogBatch: appendRequestLogBatchLocal,
+});
 
 export function renderRequestLogs() {
   if (!dom.requestLogRows) {
     return;
   }
-  ensureRequestLogBindings();
+  requestLogBindings.ensureRequestLogBindings();
   ensureAccountLabelMap(state.accountList, requestLogWindowState);
   const filter = state.requestLogStatusFilter || "all";
   const { filtered, filteredKeys } = collectFilteredRequestLogs(
