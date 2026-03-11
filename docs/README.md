@@ -8,13 +8,13 @@
 
 ## 文档职责边界
 - 根目录 `README.md` / `README.en.md`：首页导航、项目概览、快速开始。
-- 根目录 `CHANGELOG.md`：版本历史与 `v0.1.6` 之后主分支未发版更新的唯一事实源。
+- 根目录 `CHANGELOG.md`：版本历史与未发版更新的唯一事实源。
 - `docs/report/*`：运行、排障、兼容性、FAQ 类手册。
 - `docs/release/*`：构建、发版、产物和发布流程说明。
 - `docs/plan/*` / `docs/decision/*`：长期治理、实施计划与决策记录。
 
 ## 最近更新入口
-- 如果你要看 `v0.1.6` 之后主分支具体改了什么，先看 [../CHANGELOG.md](../CHANGELOG.md) 的 `Unreleased`。
+- 如果你要看最新发版内容和主分支未发版更新，先看 [../CHANGELOG.md](../CHANGELOG.md)。
 - 如果你要快速判断“哪个文档最适合当前问题”，先看下面的“文档首页”和“推荐入口”。
 
 ## 文档首页

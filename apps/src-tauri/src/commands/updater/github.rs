@@ -244,7 +244,7 @@ mod tests {
     fn release_selection_respects_channel() {
         let releases = vec![
             GitHubRelease {
-                tag_name: "v0.1.7-beta.1".to_string(),
+                tag_name: "v0.1.8-beta.1".to_string(),
                 name: None,
                 published_at: None,
                 draft: false,
@@ -252,7 +252,7 @@ mod tests {
                 assets: vec![],
             },
             GitHubRelease {
-                tag_name: "v0.1.6".to_string(),
+                tag_name: "v0.1.7".to_string(),
                 name: None,
                 published_at: None,
                 draft: false,
@@ -264,16 +264,16 @@ mod tests {
         let stable = select_release_for_channel(releases.clone(), false).expect("stable release");
         let prerelease = select_release_for_channel(releases, true).expect("prerelease release");
 
-        assert_eq!(stable.tag_name, "v0.1.6");
-        assert_eq!(prerelease.tag_name, "v0.1.7-beta.1");
+        assert_eq!(stable.tag_name, "v0.1.7");
+        assert_eq!(prerelease.tag_name, "v0.1.8-beta.1");
     }
 
     #[test]
     fn parse_release_assets_filters_repo_and_deduplicates() {
         let html = r#"
-<a href="/qxcnm/Codex-Manager/releases/download/v0.1.6/CodexManager.exe">ok</a>
-<a href="https://github.com/qxcnm/Codex-Manager/releases/download/v0.1.6/CodexManager.exe?download=1">dup</a>
-<a href="/someone/else/releases/download/v0.1.6/not-ours.zip">skip</a>
+<a href="/qxcnm/Codex-Manager/releases/download/v0.1.7/CodexManager.exe">ok</a>
+<a href="https://github.com/qxcnm/Codex-Manager/releases/download/v0.1.7/CodexManager.exe?download=1">dup</a>
+<a href="/someone/else/releases/download/v0.1.7/not-ours.zip">skip</a>
 "#;
         let assets = parse_release_assets_from_html(html, "qxcnm/Codex-Manager");
 
@@ -284,12 +284,12 @@ mod tests {
     #[test]
     fn release_asset_url_requires_target_repo() {
         assert!(normalize_release_asset_url(
-            "/qxcnm/Codex-Manager/releases/download/v0.1.6/file.zip",
+            "/qxcnm/Codex-Manager/releases/download/v0.1.7/file.zip",
             "qxcnm/Codex-Manager"
         )
         .is_some());
         assert!(normalize_release_asset_url(
-            "/other/repo/releases/download/v0.1.6/file.zip",
+            "/other/repo/releases/download/v0.1.7/file.zip",
             "qxcnm/Codex-Manager"
         )
         .is_none());

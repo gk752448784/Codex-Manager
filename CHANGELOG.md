@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-03-11
+
 ### Added
 - 设置页新增网关传输参数：支持直接配置上游流式超时与 SSE keepalive 间隔，并在 service 运行时热生效。
 - 桌面端启动快照补齐：仪表盘统计、账号用量状态、请求日志首屏会优先恢复最近一次快照，减少源码运行或服务重启后的全 0 / 未知状态。
@@ -24,6 +26,8 @@
 - 协议适配继续对齐 Codex / OpenAI 兼容生态：进一步统一 `/v1/chat/completions`、`/v1/responses`、Claude `/v1/messages` 的转发语义，并稳固 `tools` / `tool_calls`、thinking / reasoning、流式桥接和响应还原链路。
 - 设置页与运行时配置继续收敛：背景任务、网关传输、上游代理、Web 安全等高频配置统一由 `app_settings` 持久化并回填到当前进程。
 - 桌面与 service 启动链路继续治理，收敛 Web / service / desktop 之间的启动边界与启动顺序，减少源码运行与打包运行的行为分叉。
+- 项目内部继续推进长期维护向的重构治理：前端主入口、设置页、请求日志视图、Tauri 命令注册、service 生命周期、gateway protocol adapter、HTTP bridge、upstream attempt flow 等区域已进一步拆分模块边界，减少大文件与根层门面耦合。
+- service / gateway 目录结构继续收敛，更多通配导入、跨层直连和超长门面清单已被显式依赖与分层模块替代，后续维护和协议回归定位成本更低。
 - 发布链路继续收敛到 `release-all.yml` 单入口，并复用前端构建产物与协议回归基线，减少重复构建与发布时的协议回归风险。
 
 ## [0.1.6] - 2026-03-07
@@ -65,7 +69,8 @@
 ### Changed
 - 账号管理页操作区整合为单一“账号操作”下拉菜单，替代右侧多按钮堆叠，界面更简洁。
 
-[Unreleased]: https://github.com/qxcnm/Codex-Manager/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/qxcnm/Codex-Manager/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.7
 [0.1.6]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.6
 [0.1.5]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.5
 [0.1.4]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.4

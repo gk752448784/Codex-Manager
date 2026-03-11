@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn portable_asset_names_include_current_workflow_artifact() {
-        let names = portable_asset_names_for_platform("0.1.6");
+        let names = portable_asset_names_for_platform("0.1.7");
         if cfg!(target_os = "windows") {
             assert!(names.iter().any(|name| name == "CodexManager-portable.exe"));
         } else if cfg!(target_os = "linux") {
@@ -338,6 +338,6 @@ mod tests {
 
     #[test]
     fn sanitize_tag_replaces_unsafe_characters() {
-        assert_eq!(sanitize_tag("v0.1.6/beta"), "v0.1.6_beta");
+        assert_eq!(sanitize_tag("v0.1.7/beta"), "v0.1.7_beta");
     }
 }

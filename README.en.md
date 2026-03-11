@@ -21,12 +21,13 @@ A local desktop + service toolkit for managing Codex-compatible accounts, usage,
 | Build locally, package, publish, run scripts | [Build, release, and script guide](docs/release/20260310122606851_构建发布与脚本说明.md) |
 
 ## Recent Changes
-- Current latest version: `v0.1.6` (2026-03-07)
-- The `main` branch has continued moving after `v0.1.6`; see the `Unreleased` section in [CHANGELOG.md](CHANGELOG.md) for the full post-`v0.1.6` history.
+- Current latest version: `v0.1.7` (2026-03-11)
+- This release rolls up the latest protocol compatibility work, desktop interaction fixes, Web auth hardening, and long-term maintainability refactors; see [CHANGELOG.md](CHANGELOG.md) for full history.
 - Protocol compatibility keeps tightening around Codex / OpenAI behavior: `/v1/chat/completions`, `/v1/responses`, and Claude `/v1/messages` are now more closely aligned, including multi-MCP tool preservation, long tool-name shortening, and response restoration for Cherry Studio, OpenClaw, Claude Code, and similar clients.
 - Gateway runtime and diagnostics are stronger: failure responses expose structured `errorCode` / `errorDetail` fields and trace headers, long-running SSE turns are more resilient to idle disconnects, and the Settings page now exposes upstream stream timeout and SSE keepalive controls with runtime hot reload.
 - Desktop behavior was tightened as well: startup now restores dashboard / account / request-log snapshots earlier, successful login refreshes the accounts table automatically, and platform-key creation plus upstream-proxy save flows were cleaned up.
 - The Web auth flow is safer: `codexmanager-web` still persists the password, but authenticated sessions are now scoped to the current Web process, so old cookies do not survive a full close-and-reopen cycle.
+- The project is also undergoing long-term maintainability refactoring: the frontend entry/runtime layers, settings flow, request-log UI, Tauri command surface, service lifecycle, gateway protocol adapter, HTTP bridge, and upstream execution flow have all been split further into clearer module boundaries.
 - The release pipeline stays consolidated under `release-all.yml` for one-click Windows / macOS / Linux publishing, with local frontend build fallback when prebuilt artifacts are unavailable.
 
 ## Features
@@ -81,7 +82,7 @@ A local desktop + service toolkit for managing Codex-compatible accounts, usage,
 | [Release assets guide](docs/release/20260309195355216_发布与产物说明.md) | Platform artifacts, naming, release vs pre-release |
 | [Script and release responsibility matrix](docs/report/20260309195735631_脚本与发布职责对照.md) | Which script owns which step |
 | [Protocol regression checklist](docs/report/20260309195735632_协议兼容回归清单.md) | `/v1/chat/completions`, `/v1/responses`, tools regression items |
-| [CHANGELOG.md](CHANGELOG.md) | Post-`v0.1.6` unreleased changes and full version history |
+| [CHANGELOG.md](CHANGELOG.md) | Latest release notes, unreleased changes, and full version history |
 
 ## Project Structure
 ```text

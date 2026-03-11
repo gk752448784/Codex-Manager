@@ -21,12 +21,13 @@
 | 本地构建、打包、发版、脚本调用 | [构建发布与脚本说明](docs/release/20260310122606851_构建发布与脚本说明.md) |
 
 ## 最近变更
-- 当前最新版本：`v0.1.6`（2026-03-07）
-- `v0.1.6` 之后主分支已继续更新，完整历史请看 [CHANGELOG.md](CHANGELOG.md) 的 `Unreleased`。
+- 当前最新版本：`v0.1.7`（2026-03-11）
+- 本次发版已收敛最近一轮协议兼容、桌面交互、Web 安全和长期维护治理；完整历史请看 [CHANGELOG.md](CHANGELOG.md)。
 - 协议兼容继续收敛：进一步统一 `/v1/chat/completions`、`/v1/responses`、Claude `/v1/messages`；补齐多 MCP server 工具保留、长工具名缩短与响应还原，并继续覆盖 Cherry Studio、OpenClaw、Claude Code 等兼容场景。
 - 网关运行与诊断增强：失败响应增加结构化 `errorCode` / `errorDetail` 与追踪响应头；长输出场景的 SSE 空闲断流重连更稳定；设置页新增上游流式超时和 SSE keepalive 配置并支持热生效。
 - 桌面体验继续修正：启动后会优先恢复仪表盘 / 账号 / 请求日志快照；登录成功后账号表格会自动刷新；平台密钥创建与上游代理保存流程也做了收口。
 - Web 安全链路已补齐：`codexmanager-web` 的访问密码仍会持久化，但登录会话会绑定当前 Web 进程；关闭并重新打开后，旧 Cookie 不再继续生效，必须重新验证密码。
+- 项目内部也在持续做长期维护向重构：前端主入口、设置页、请求日志、Tauri 命令层、service 生命周期、gateway protocol adapter、HTTP bridge 和 upstream 流程都已继续拆分，目录边界和模块职责更清晰。
 - 发布体系继续收敛到单一入口：`release-all.yml` 统一负责 Windows / macOS / Linux 一键发布；当 `run_verify=false` 时会自动回退到本地前端构建，不再强依赖预构建工件。
 
 ## 功能概览
@@ -81,7 +82,7 @@
 | [发布与产物说明](docs/release/20260309195355216_发布与产物说明.md) | 各平台发版产物、命名、是否 pre-release |
 | [脚本与发布职责对照](docs/report/20260309195735631_脚本与发布职责对照.md) | 各脚本负责什么、什么场景该用哪个 |
 | [协议兼容回归清单](docs/report/20260309195735632_协议兼容回归清单.md) | `/v1/chat/completions`、`/v1/responses`、tools 回归项 |
-| [CHANGELOG.md](CHANGELOG.md) | `v0.1.6` 之后主分支未发版更新与完整版本历史 |
+| [CHANGELOG.md](CHANGELOG.md) | 最新发版内容、未发版更新与完整版本历史 |
 
 ## 目录结构
 ```text
