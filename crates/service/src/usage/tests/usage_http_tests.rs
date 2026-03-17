@@ -111,26 +111,12 @@ fn classify_refresh_token_auth_error_reason_maps_known_and_unknown_401() {
 }
 
 #[test]
-fn refresh_token_status_error_uses_identity_error_code_header_when_body_lacks_code() {
+fn refresh_token_status_error_ignores_headers_for_401_reason_when_body_lacks_code() {
     let mut headers = HeaderMap::new();
     headers.insert(
         "x-error-json",
         HeaderValue::from_static("{\"identity_error_code\":\"refresh_token_invalidated\"}"),
     );
-
-    assert_eq!(
-        super::format_refresh_token_status_error_with_headers(
-            StatusCode::UNAUTHORIZED,
-            Some(&headers),
-            "<html><title>Just a moment...</title></html>"
-        ),
-        "refresh token failed with status 401 Unauthorized: Your access token could not be refreshed because your refresh token was revoked. Please log out and sign in again."
-    );
-}
-
-#[test]
-fn refresh_token_status_error_uses_auth_error_header_when_body_lacks_code() {
-    let mut headers = HeaderMap::new();
     headers.insert(
         "x-openai-authorization-error",
         HeaderValue::from_static("refresh_token_expired"),
@@ -142,7 +128,7 @@ fn refresh_token_status_error_uses_auth_error_header_when_body_lacks_code() {
             Some(&headers),
             "<html><title>Just a moment...</title></html>"
         ),
-        "refresh token failed with status 401 Unauthorized: Your access token could not be refreshed because your refresh token has expired. Please log out and sign in again."
+        "refresh token failed with status 401 Unauthorized: Your access token could not be refreshed. Please log out and sign in again."
     );
 }
 

@@ -215,6 +215,9 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                选择“跟随请求”时，会使用请求体里的实际模型；请求日志展示的是最终生效模型。
+              </p>
             </div>
           </div>
 

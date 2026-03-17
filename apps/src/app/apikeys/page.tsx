@@ -241,7 +241,13 @@ export default function ApiKeysPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs font-medium text-muted-foreground">
-                        {key.model || "跟随请求"}
+                        {key.model ? (
+                          key.model
+                        ) : (
+                          <span title="跟随请求表示使用请求体里的实际 model；请求日志展示的是最终生效模型。">
+                            跟随请求
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {formatCompactNumber(usageByKey[key.id] ?? 0, "0")}

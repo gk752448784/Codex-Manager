@@ -97,14 +97,6 @@ fn extract_refresh_token_error_code(body: &str) -> Option<String> {
         })
 }
 
-fn extract_refresh_token_error_code_from_headers(headers: &HeaderMap) -> Option<String> {
-    crate::gateway::extract_identity_error_code_from_headers(headers).or_else(|| {
-        extract_response_header(headers, AUTH_ERROR_HEADER)
-            .map(|value| value.to_ascii_lowercase())
-            .filter(|value| !value.trim().is_empty())
-    })
-}
-
 fn looks_like_refresh_token_blocked_marker(value: &str) -> bool {
     let normalized = value.trim().to_ascii_lowercase();
     normalized.contains("blocked")
@@ -184,17 +176,14 @@ pub(crate) fn classify_refresh_token_auth_error_reason(
 
 fn classify_refresh_token_auth_error_reason_with_headers(
     status: reqwest::StatusCode,
-    headers: Option<&HeaderMap>,
+    _headers: Option<&HeaderMap>,
     body: &str,
 ) -> Option<RefreshTokenAuthErrorReason> {
     if status != reqwest::StatusCode::UNAUTHORIZED {
         return None;
     }
-    let header_code = headers.and_then(extract_refresh_token_error_code_from_headers);
     Some(classify_refresh_token_auth_error_reason_from_code(
-        extract_refresh_token_error_code(body)
-            .or(header_code)
-            .as_deref(),
+        extract_refresh_token_error_code(body).as_deref(),
     ))
 }
 
