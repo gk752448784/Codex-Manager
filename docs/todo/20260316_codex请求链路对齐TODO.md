@@ -158,9 +158,7 @@
 
 待做：
 
-- [ ] 核清当前官方哪些模型 / provider / 配置下会优先走 websocket
-- [ ] 评估是否需要在网关层补“上游 responses websocket”而不是本地 RPC websocket
-- [ ] 若确认确有收益，再做最小实现；否则明确记录为暂不实施
+- [x] 已完成策略评估：当前主线不继续追 `responses websocket / prewarm / reuse`；除非后续能证明对请求成功率或 Cloudflare 触发率有明确收益，否则暂不实施
 
 验收：
 
