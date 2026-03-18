@@ -47,13 +47,7 @@
 - `1fafcf9`：调整免责声明与搜索框样式。补强顶部免责声明展示，同时微调搜索框与界面细节，减少桌面端视觉噪音。
 - `43530c1`：补充 README 交流圈二维码。文档里已增加交流圈入口，便于集中反馈、交流和跟进问题。
 
-### Recent Updates
-- `9435be2`: Added appearance preset switching. The settings page now supports both `Default` and `Gradient` visual presets with instant switching, persistent storage, and aligned defaults and card sizing.
-- `cf351e4`: Fixed release cache handling and improved Docker setup. The release workflow no longer enables pnpm cache in build jobs that do not run `pnpm install`, and the Docker setup now includes a non-root runtime user, health checks, leaner build context, and stricter compose dependencies.
-- `7f6aa6b`: Unified theme styling and refined release details. Theme variables, glass card layering, background gradients, and the overall settings appearance were consolidated, with several release-flow details corrected at the same time.
-- `70c1ee7`: Aligned Node.js and Tauri CLI versions in the release workflow. This reduces cross-platform packaging drift by keeping the workflow's Node, pnpm, and Tauri CLI versions in sync.
-- `1fafcf9`: Updated the disclaimer and search box styling. The top disclaimer was strengthened, and the search box plus several UI details were refined to reduce visual noise on desktop.
-- `43530c1`: Added the community QR code to the README. A dedicated community entry is now included in the documentation for easier feedback, discussion, and issue follow-up.
+
 
 ## 功能概览
 - 账号池管理：分组、标签、排序、备注
