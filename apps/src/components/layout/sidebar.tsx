@@ -18,11 +18,16 @@ import { memo, useEffect, useMemo } from "react";
 
 const NAV_ITEMS = [
   { name: "仪表盘", href: "/", icon: LayoutDashboard },
-  { name: "账号管理", href: "/accounts", icon: Users },
-  { name: "平台密钥", href: "/apikeys", icon: Key },
-  { name: "请求日志", href: "/logs", icon: FileText },
-  { name: "设置", href: "/settings", icon: Settings },
+  { name: "账号管理", href: "/accounts/", icon: Users },
+  { name: "平台密钥", href: "/apikeys/", icon: Key },
+  { name: "请求日志", href: "/logs/", icon: FileText },
+  { name: "设置", href: "/settings/", icon: Settings },
 ];
+
+function normalizeRoutePath(path: string) {
+  if (path === "/") return path;
+  return path.replace(/\/+$/, "");
+}
 
 const NavItem = memo(({ item, isActive, isSidebarOpen }: { item: typeof NAV_ITEMS[0], isActive: boolean, isSidebarOpen: boolean }) => (
   <Link
@@ -44,6 +49,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isSidebarOpen, toggleSidebar } = useAppStore();
+  const normalizedPathname = normalizeRoutePath(pathname);
 
   useEffect(() => {
     const runtime = globalThis as typeof globalThis & {
@@ -56,7 +62,7 @@ export function Sidebar() {
 
     const prefetchRoutes = () => {
       for (const item of NAV_ITEMS) {
-        if (item.href !== pathname) {
+        if (normalizeRoutePath(item.href) !== normalizedPathname) {
           router.prefetch(item.href);
         }
       }
@@ -71,18 +77,18 @@ export function Sidebar() {
 
     const timer = globalThis.setTimeout(prefetchRoutes, 120);
     return () => globalThis.clearTimeout(timer);
-  }, [pathname, router]);
+  }, [normalizedPathname, router]);
 
   const renderedItems = useMemo(() => 
     NAV_ITEMS.map((item) => (
       <NavItem 
         key={item.href} 
         item={item} 
-        isActive={pathname === item.href} 
+        isActive={normalizeRoutePath(item.href) === normalizedPathname} 
         isSidebarOpen={isSidebarOpen} 
       />
     )),
-    [pathname, isSidebarOpen]
+    [normalizedPathname, isSidebarOpen]
   );
 
   return (

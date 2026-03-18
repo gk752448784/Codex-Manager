@@ -4,7 +4,16 @@ use super::{
 };
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::StatusCode;
-use std::sync::MutexGuard;
+use std::sync::{Mutex, MutexGuard};
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_env() -> MutexGuard<'static, ()> {
+    // 中文注释：单进程并行跑测试时，环境变量是全局共享的；这里串行化避免用例互相污染导致偶发失败。
+    ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 fn usage_header_runtime_guard() -> MutexGuard<'static, ()> {
     crate::gateway::gateway_runtime_test_guard()
@@ -245,6 +254,7 @@ fn usage_request_headers_use_official_chatgpt_account_header_name() {
 
 #[test]
 fn refresh_token_url_uses_official_default_for_openai_issuer() {
+    let _lock = lock_env();
     std::env::remove_var("CODEX_REFRESH_TOKEN_URL_OVERRIDE");
 
     assert_eq!(
@@ -259,6 +269,7 @@ fn refresh_token_url_uses_official_default_for_openai_issuer() {
 
 #[test]
 fn refresh_token_url_preserves_custom_issuer_and_override() {
+    let _lock = lock_env();
     let previous = std::env::var("CODEX_REFRESH_TOKEN_URL_OVERRIDE").ok();
 
     std::env::remove_var("CODEX_REFRESH_TOKEN_URL_OVERRIDE");

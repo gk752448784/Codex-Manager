@@ -16,6 +16,9 @@ use crate::storage_helpers::open_storage;
 use crate::usage_token_refresh::refresh_and_persist_access_token;
 
 const CURRENT_AUTH_ACCOUNT_ID_KEY: &str = "auth.current_account_id";
+const CURRENT_AUTH_MODE_KEY: &str = "auth.current_auth_mode";
+const AUTH_MODE_CHATGPT: &str = "chatgpt";
+const AUTH_MODE_CHATGPT_AUTH_TOKENS: &str = "chatgptAuthTokens";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,6 +180,7 @@ pub(crate) fn login_with_chatgpt_auth_tokens(
         .map_err(|err| err.to_string())?;
 
     set_current_auth_account_id(Some(&account_id))?;
+    set_current_auth_mode(Some(AUTH_MODE_CHATGPT_AUTH_TOKENS))?;
     let _ = crate::gateway::set_manual_preferred_account(&account_id);
 
     Ok(ChatgptAuthTokensLoginResponse {
@@ -217,9 +221,10 @@ pub(crate) fn read_current_account(refresh_token: bool) -> Result<AccountReadRes
         }
     }
 
+    let auth_mode = resolve_current_auth_mode(&token);
     Ok(AccountReadResponse {
-        account: Some(current_account_payload(&account, &token)),
-        auth_mode: Some("chatgpt".to_string()),
+        account: Some(current_account_payload(&account, &token, auth_mode.as_str())),
+        auth_mode: Some(auth_mode),
         requires_openai_auth: true,
     })
 }
@@ -284,6 +289,7 @@ pub(crate) fn logout_current_account() -> Result<serde_json::Value, String> {
         }
     }
     set_current_auth_account_id(None)?;
+    set_current_auth_mode(None)?;
     Ok(serde_json::json!({
         "ok": true,
         "accountId": current_account_id,
@@ -305,7 +311,8 @@ fn resolve_current_account_with_token(
     match (account, token) {
         (Some(account), Some(token)) => Ok(Some((account, token))),
         _ => {
-            save_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY, None)?;
+            set_current_auth_account_id(None)?;
+            set_current_auth_mode(None)?;
             let _ = clear_manual_preferred_account_if(&account_id);
             Ok(None)
         }
@@ -341,11 +348,11 @@ fn resolve_refresh_target(
     Ok(token.map(|token| (account, token)))
 }
 
-fn current_account_payload(account: &Account, token: &Token) -> CurrentAuthAccount {
+fn current_account_payload(account: &Account, token: &Token, auth_mode: &str) -> CurrentAuthAccount {
     let claims = parse_id_token_claims(&token.access_token).ok();
     let plan_type_resolution = resolve_plan_type_resolution(token, claims.as_ref());
     CurrentAuthAccount {
-        kind: "chatgpt".to_string(),
+        kind: auth_mode.to_string(),
         account_id: account.id.clone(),
         email: claims
             .as_ref()
@@ -433,6 +440,25 @@ fn normalize_plan_type(value: String) -> Option<ResolvedPlanType> {
 
 pub(crate) fn set_current_auth_account_id(account_id: Option<&str>) -> Result<(), String> {
     save_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY, account_id)
+}
+
+pub(crate) fn set_current_auth_mode(auth_mode: Option<&str>) -> Result<(), String> {
+    save_persisted_app_setting(CURRENT_AUTH_MODE_KEY, auth_mode)
+}
+
+fn resolve_current_auth_mode(token: &Token) -> String {
+    get_persisted_app_setting(CURRENT_AUTH_MODE_KEY)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| infer_auth_mode_from_token(token).to_string())
+}
+
+fn infer_auth_mode_from_token(token: &Token) -> &'static str {
+    if token.id_token.trim() == token.access_token.trim() {
+        AUTH_MODE_CHATGPT_AUTH_TOKENS
+    } else {
+        AUTH_MODE_CHATGPT
+    }
 }
 
 #[cfg(test)]

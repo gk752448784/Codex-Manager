@@ -333,6 +333,7 @@ fn route_state_capacity_evicts_lru_and_keeps_maps_in_sync() {
 #[test]
 fn health_p2c_promotes_healthier_candidate_in_ordered_mode() {
     let _guard = route_strategy_test_guard();
+    let _quality_guard = super::super::route_quality::route_quality_test_guard();
     super::super::route_quality::clear_route_quality_for_tests();
     std::env::set_var(ROUTE_HEALTH_P2C_ENABLED_ENV, "1");
     // 中文注释：窗口=2 时挑战者固定为 index=1，确保测试稳定可复现。
@@ -359,6 +360,7 @@ fn health_p2c_promotes_healthier_candidate_in_ordered_mode() {
 #[test]
 fn balanced_mode_keeps_strict_round_robin_by_default() {
     let _guard = route_strategy_test_guard();
+    let _quality_guard = super::super::route_quality::route_quality_test_guard();
     let prev_strategy = std::env::var(ROUTE_STRATEGY_ENV).ok();
     let prev_p2c = std::env::var(ROUTE_HEALTH_P2C_ENABLED_ENV).ok();
     let prev_balanced_window = std::env::var(ROUTE_HEALTH_P2C_BALANCED_WINDOW_ENV).ok();

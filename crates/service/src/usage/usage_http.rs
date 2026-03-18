@@ -2,7 +2,6 @@ use codexmanager_core::usage::usage_endpoint;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use reqwest::Proxy;
-use serde::Serialize;
 use std::sync::{OnceLock, RwLock};
 use std::time::Duration;
 
@@ -64,13 +63,6 @@ pub(crate) struct RefreshTokenResponse {
     pub(crate) refresh_token: Option<String>,
     #[serde(default)]
     pub(crate) id_token: Option<String>,
-}
-
-#[derive(Serialize)]
-struct RefreshTokenRequest<'a> {
-    client_id: &'a str,
-    grant_type: &'a str,
-    refresh_token: &'a str,
 }
 
 fn extract_refresh_token_error_code(body: &str) -> Option<String> {
@@ -493,17 +485,13 @@ pub(crate) fn refresh_access_token(
     refresh_token: &str,
 ) -> Result<RefreshTokenResponse, String> {
     let refresh_token_url = resolve_refresh_token_url(issuer);
-    let body = RefreshTokenRequest {
-        client_id,
-        grant_type: "refresh_token",
-        refresh_token,
-    };
+    let body = build_refresh_token_body(client_id, refresh_token);
     let build_request = || {
         let client = usage_http_client();
         client
             .post(refresh_token_url.clone())
-            .header("Content-Type", "application/json")
-            .json(&body)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body.clone())
     };
     let resp = match build_request().send() {
         Ok(resp) => resp,
@@ -533,6 +521,14 @@ pub(crate) fn refresh_access_token(
     }
     resp.json::<RefreshTokenResponse>()
         .map_err(|e| format!("read refresh token response json failed: {e}"))
+}
+
+fn build_refresh_token_body(client_id: &str, refresh_token: &str) -> String {
+    let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+    serializer.append_pair("client_id", client_id);
+    serializer.append_pair("grant_type", "refresh_token");
+    serializer.append_pair("refresh_token", refresh_token);
+    serializer.finish()
 }
 
 #[cfg(test)]

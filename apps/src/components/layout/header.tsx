@@ -40,7 +40,8 @@ export function Header() {
   }, [serviceStatus.addr]);
 
   const getPageTitle = () => {
-    switch (pathname) {
+    const normalizedPathname = pathname === "/" ? pathname : pathname.replace(/\/+$/, "");
+    switch (normalizedPathname) {
       case "/":
         return "仪表盘";
       case "/accounts":

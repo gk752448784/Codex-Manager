@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   // Tauri 开发态通过 127.0.0.1 加载 Next 资源，显式放行避免 dev 跨源告警。
   allowedDevOrigins: ["127.0.0.1", "[::1]"],
   output: 'export',
+  // 中文注释：导出静态站点时强制 trailing slash，生成 /xxx/index.html，避免 Tauri 打包后导航丢失。
+  trailingSlash: true,
   images: {
     unoptimized: true,
   },

@@ -633,6 +633,7 @@ pub(crate) fn complete_login_with_redirect(
         .update_login_session_status(state, "success", None)
         .map_err(|e| e.to_string())?;
     crate::auth_account::set_current_auth_account_id(Some(&account_key))?;
+    crate::auth_account::set_current_auth_mode(Some("chatgpt"))?;
     Ok(())
 }
 

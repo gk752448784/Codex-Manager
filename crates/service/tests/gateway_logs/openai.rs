@@ -1879,11 +1879,11 @@ fn gateway_unauthorized_refreshes_access_token_and_retries_once() {
     assert_eq!(second.path, "/oauth/token");
     let refresh_body = String::from_utf8(second.body.clone()).expect("refresh body utf8");
     assert!(
-        refresh_body.contains("\"grant_type\":\"refresh_token\""),
+        refresh_body.contains("grant_type=refresh_token"),
         "unexpected refresh body: {refresh_body}"
     );
     assert!(
-        refresh_body.contains("\"refresh_token\":\"refresh_token_old\""),
+        refresh_body.contains("refresh_token=refresh_token_old"),
         "unexpected refresh body: {refresh_body}"
     );
     assert_eq!(third.path, "/chatgpt.com/backend-api/codex/responses");
