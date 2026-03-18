@@ -674,8 +674,14 @@ fn exchange_code_for_tokens(
 ) -> Result<TokenResponse, String> {
     // 请求 token 接口
     let client = auth_http_client_for_issuer(issuer);
-    let request =
-        build_exchange_code_request(&client, issuer, client_id, redirect_uri, code_verifier, code)?;
+    let request = build_exchange_code_request(
+        &client,
+        issuer,
+        client_id,
+        redirect_uri,
+        code_verifier,
+        code,
+    )?;
     let resp = client
         .execute(request)
         .map_err(|e| redact_sensitive_error_url(e).to_string())?;

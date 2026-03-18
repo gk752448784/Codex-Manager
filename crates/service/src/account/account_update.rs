@@ -13,9 +13,7 @@ pub(crate) fn update_account(
         return Err("missing accountId".to_string());
     }
 
-    let normalized_status = status
-        .map(normalize_account_status)
-        .transpose()?;
+    let normalized_status = status.map(normalize_account_status).transpose()?;
     if sort.is_none() && normalized_status.is_none() {
         return Err("missing account update fields".to_string());
     }
@@ -34,7 +32,7 @@ pub(crate) fn update_account(
     }
 
     if let Some(status) = normalized_status {
-        let reason = if status == "inactive" {
+        let reason = if status == "disabled" {
             "manual_disable"
         } else {
             "manual_enable"
@@ -49,7 +47,7 @@ fn normalize_account_status(status: &str) -> Result<&'static str, String> {
     let normalized = status.trim().to_ascii_lowercase();
     match normalized.as_str() {
         "active" => Ok("active"),
-        "inactive" => Ok("inactive"),
+        "disabled" | "inactive" => Ok("disabled"),
         _ => Err(format!("unsupported account status: {status}")),
     }
 }

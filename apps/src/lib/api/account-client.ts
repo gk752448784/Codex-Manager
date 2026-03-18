@@ -87,7 +87,7 @@ export const accountClient = {
   updateSort: (accountId: string, sort: number) =>
     invoke("service_account_update", withAddr({ accountId, sort })),
   disableAccount: (accountId: string) =>
-    invoke("service_account_update", withAddr({ accountId, status: "inactive" })),
+    invoke("service_account_update", withAddr({ accountId, status: "disabled" })),
   enableAccount: (accountId: string) =>
     invoke("service_account_update", withAddr({ accountId, status: "active" })),
   import: (contents: string[]) =>

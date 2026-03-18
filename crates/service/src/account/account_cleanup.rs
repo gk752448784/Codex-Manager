@@ -14,6 +14,7 @@ pub(crate) struct DeleteUnavailableFreeResult {
     scanned: usize,
     deleted: usize,
     skipped_available: usize,
+    skipped_disabled: usize,
     skipped_non_free: usize,
     skipped_missing_usage: usize,
     skipped_missing_token: usize,
@@ -34,6 +35,7 @@ pub(crate) fn delete_unavailable_free_accounts() -> Result<DeleteUnavailableFree
         scanned: 0,
         deleted: 0,
         skipped_available: 0,
+        skipped_disabled: 0,
         skipped_non_free: 0,
         skipped_missing_usage: 0,
         skipped_missing_token: 0,
@@ -43,17 +45,19 @@ pub(crate) fn delete_unavailable_free_accounts() -> Result<DeleteUnavailableFree
     for account in accounts {
         result.scanned += 1;
 
+        if account.status.trim().eq_ignore_ascii_case("disabled") {
+            result.skipped_disabled += 1;
+            continue;
+        }
+
         let snapshot = usage_by_account.get(&account.id);
-        let account_inactive = account.status.trim().eq_ignore_ascii_case("inactive");
-        if !account_inactive {
-            let Some(snapshot) = snapshot else {
-                result.skipped_missing_usage += 1;
-                continue;
-            };
-            if matches!(evaluate_snapshot(snapshot), Availability::Available) {
-                result.skipped_available += 1;
-                continue;
-            }
+        let Some(snapshot) = snapshot else {
+            result.skipped_missing_usage += 1;
+            continue;
+        };
+        if matches!(evaluate_snapshot(snapshot), Availability::Available) {
+            result.skipped_available += 1;
+            continue;
         }
 
         let token = storage
@@ -66,9 +70,7 @@ pub(crate) fn delete_unavailable_free_accounts() -> Result<DeleteUnavailableFree
 
         let plan_type = extract_plan_type_from_id_token(&token.id_token);
         if !is_free_plan_type(plan_type.as_deref())
-            && !is_free_plan_from_credits_json(
-                snapshot.and_then(|item| item.credits_json.as_deref()),
-            )
+            && !is_free_plan_from_credits_json(snapshot.credits_json.as_deref())
         {
             result.skipped_non_free += 1;
             continue;

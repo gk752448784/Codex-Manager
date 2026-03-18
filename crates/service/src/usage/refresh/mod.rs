@@ -117,6 +117,7 @@ struct UsageRefreshResult {
 }
 
 pub(crate) use self::batch::refresh_usage_for_all_accounts;
+use self::batch::refresh_usage_for_polling_batch;
 #[cfg(test)]
 use self::batch::{next_usage_poll_cursor, usage_poll_batch_indices};
 use self::errors::{
@@ -368,14 +369,6 @@ fn refresh_usage_for_token(
             Err(err)
         }
     }
-}
-
-fn account_map_from_list(accounts: Vec<Account>) -> HashMap<String, Account> {
-    let mut out = HashMap::with_capacity(accounts.len());
-    for account in accounts {
-        out.insert(account.id.clone(), account);
-    }
-    out
 }
 
 #[cfg(test)]

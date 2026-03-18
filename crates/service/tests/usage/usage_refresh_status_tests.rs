@@ -16,7 +16,7 @@ fn unique_id(prefix: &str) -> String {
 }
 
 #[test]
-fn apply_status_marks_inactive_on_missing() {
+fn apply_status_missing_snapshot_keeps_account_status() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");
     let account = Account {
@@ -53,7 +53,7 @@ fn apply_status_marks_inactive_on_missing() {
         .into_iter()
         .find(|acc| acc.id == "acc-1")
         .expect("exists");
-    assert_eq!(loaded.status, "inactive");
+    assert_eq!(loaded.status, "active");
 }
 
 #[test]
@@ -112,11 +112,16 @@ fn apply_status_skips_db_and_event_when_status_unchanged() {
 
     let availability = apply_status_from_snapshot(&storage, &available);
     assert!(matches!(availability, Availability::Available));
+    let reactivated_account = storage
+        .find_account_by_id("acc-unchanged")
+        .expect("find")
+        .expect("exists");
+    assert_eq!(reactivated_account.status, "active");
     assert_eq!(storage.event_count().expect("count events"), 1);
 }
 
 #[test]
-fn mark_usage_unreachable_only_for_usage_status_error() {
+fn mark_usage_unreachable_keeps_account_status_for_usage_status_error() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");
     let account = Account {
@@ -153,7 +158,51 @@ fn mark_usage_unreachable_only_for_usage_status_error() {
         .into_iter()
         .find(|acc| acc.id == "acc-2")
         .expect("exists");
-    assert_eq!(inactive.status, "inactive");
+    assert_eq!(inactive.status, "active");
+}
+
+#[test]
+fn apply_status_available_preserves_manual_disabled_status() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let base_updated_at = now_ts() - 10;
+    storage
+        .insert_account(&Account {
+            id: "acc-disabled".to_string(),
+            label: "main".to_string(),
+            issuer: "issuer".to_string(),
+            chatgpt_account_id: None,
+            workspace_id: None,
+            group_name: None,
+            sort: 0,
+            status: "disabled".to_string(),
+            created_at: base_updated_at,
+            updated_at: base_updated_at,
+        })
+        .expect("insert");
+
+    let available = UsageSnapshotRecord {
+        account_id: "acc-disabled".to_string(),
+        used_percent: Some(10.0),
+        window_minutes: Some(300),
+        resets_at: None,
+        secondary_used_percent: Some(20.0),
+        secondary_window_minutes: Some(10080),
+        secondary_resets_at: None,
+        credits_json: None,
+        captured_at: now_ts(),
+    };
+
+    let availability = apply_status_from_snapshot(&storage, &available);
+    assert!(matches!(availability, Availability::Available));
+
+    let account = storage
+        .find_account_by_id("acc-disabled")
+        .expect("find")
+        .expect("exists");
+    assert_eq!(account.status, "disabled");
+    assert_eq!(account.updated_at, base_updated_at);
+    assert_eq!(storage.event_count().expect("count events"), 0);
 }
 
 #[test]

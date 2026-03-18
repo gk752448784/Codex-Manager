@@ -71,9 +71,7 @@ pub(crate) fn build_codex_upstream_headers(
             residency_requirement,
         ));
     }
-    if let Some(client_request_id) = resolve_client_request_id(
-        input.incoming_client_request_id,
-    ) {
+    if let Some(client_request_id) = resolve_client_request_id(input.incoming_client_request_id) {
         headers.push(("x-client-request-id".to_string(), client_request_id));
     }
     if let Some(subagent) = input

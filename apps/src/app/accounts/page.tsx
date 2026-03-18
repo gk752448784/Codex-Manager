@@ -122,12 +122,19 @@ function QuotaProgress({
   );
 }
 
-function isAccountInactive(account: Account): boolean {
-  return (
-    String(account.status || "")
-      .trim()
-      .toLowerCase() === "inactive"
-  );
+function getAccountStatusAction(account: Account): {
+  enable: boolean;
+  label: string;
+  icon: LucideIcon;
+} {
+  const normalizedStatus = String(account.status || "").trim().toLowerCase();
+  if (normalizedStatus === "disabled") {
+    return { enable: true, label: "启用账号", icon: Power };
+  }
+  if (normalizedStatus === "inactive") {
+    return { enable: true, label: "恢复账号", icon: Power };
+  }
+  return { enable: false, label: "禁用账号", icon: PowerOff };
 }
 
 export default function AccountsPage() {
@@ -452,22 +459,6 @@ export default function AccountsPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
-                    批量操作
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem
-                    className="h-9 rounded-lg px-2"
-                    disabled={isRefreshingAllAccounts}
-                    onClick={() => refreshAllAccounts()}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" /> 刷新所有账号
-                    <DropdownMenuShortcut>
-                      {isRefreshingAllAccounts ? "..." : "ALL"}
-                    </DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
                     清理
                   </DropdownMenuLabel>
                   <DropdownMenuItem
@@ -502,7 +493,7 @@ export default function AccountsPage() {
                   isRefreshingAllAccounts && "animate-spin",
                 )}
               />
-              刷新所有
+              刷新账号用量
             </Button>
           </div>
         </CardContent>
@@ -576,7 +567,8 @@ export default function AccountsPage() {
                   const secondaryWindowOnly = isSecondaryWindowOnlyUsage(
                     account.usage,
                   );
-                  const accountInactive = isAccountInactive(account);
+                  const statusAction = getAccountStatusAction(account);
+                  const StatusActionIcon = statusAction.icon;
                   return (
                     <TableRow key={account.id} className="group">
                       <TableCell className="text-center">
@@ -721,16 +713,13 @@ export default function AccountsPage() {
                                 onClick={() =>
                                   toggleAccountStatus(
                                     account.id,
-                                    accountInactive,
+                                    statusAction.enable,
+                                    account.status,
                                   )
                                 }
                               >
-                                {accountInactive ? (
-                                  <Power className="h-4 w-4" />
-                                ) : (
-                                  <PowerOff className="h-4 w-4" />
-                                )}
-                                {accountInactive ? "启用账号" : "禁用账号"}
+                                <StatusActionIcon className="h-4 w-4" />
+                                {statusAction.label}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2"

@@ -2,7 +2,7 @@ use codexmanager_core::storage::{now_ts, Event, Storage};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use crate::account_status::{mark_account_inactive_for_refresh_token_error, set_account_status};
+use crate::account_status::mark_account_inactive_for_refresh_token_error;
 
 const DEFAULT_USAGE_REFRESH_FAILURE_EVENT_WINDOW_SECS: i64 = 60;
 const USAGE_REFRESH_FAILURE_EVENT_WINDOW_ENV: &str =
@@ -37,11 +37,7 @@ pub(super) fn mark_usage_unreachable_if_needed(storage: &Storage, account_id: &s
     if mark_account_inactive_for_refresh_token_error(storage, account_id, err) {
         return;
     }
-    // 中文注释：仅当上游明确返回 usage endpoint 状态错误才降级账号，
-    // 否则网络抖动等瞬态错误也会误标 inactive，导致可用账号被过早摘除。
-    if err.starts_with("usage endpoint status") {
-        set_account_status(storage, account_id, "inactive", "usage_unreachable");
-    }
+    let _ = (storage, account_id, err);
 }
 
 pub(super) fn should_retry_with_refresh(err: &str) -> bool {

@@ -941,7 +941,7 @@ export default function SettingsPage() {
           <Card className="glass-card border-none shadow-md">
             <CardHeader>
               <CardTitle className="text-base">后台任务线程</CardTitle>
-              <CardDescription>管理自动轮询和保活任务</CardDescription>
+              <CardDescription>管理自动轮询和保活任务；用量轮询会跳过手动禁用账号</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {[
@@ -1011,7 +1011,7 @@ export default function SettingsPage() {
           <Card className="glass-card border-none shadow-md">
             <CardHeader>
               <CardTitle className="text-base">Worker 并发参数</CardTitle>
-              <CardDescription>调整执行单元并发规模（重启后生效）</CardDescription>
+              <CardDescription>调整执行单元并发规模；用量刷新并发会直接影响手动刷新和后台轮询</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {[

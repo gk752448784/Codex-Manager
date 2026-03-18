@@ -1,7 +1,6 @@
 use codexmanager_core::storage::Storage;
 
 use crate::account_availability::{evaluate_snapshot, Availability};
-use crate::account_status::set_account_status;
 
 #[allow(dead_code)]
 pub(crate) fn should_failover_after_refresh(
@@ -13,7 +12,6 @@ pub(crate) fn should_failover_after_refresh(
         Ok(_) => should_failover_by_snapshot(storage, account_id, true),
         Err(err) => {
             if err.starts_with("usage endpoint status") {
-                set_account_status(storage, account_id, "inactive", "usage_unreachable");
                 true
             } else {
                 false
@@ -32,15 +30,9 @@ fn should_failover_by_snapshot(storage: &Storage, account_id: &str, fail_on_miss
         .ok()
         .flatten();
     match snap.as_ref().map(evaluate_snapshot) {
-        Some(Availability::Unavailable(reason)) => {
-            set_account_status(storage, account_id, "inactive", reason);
-            true
-        }
+        Some(Availability::Unavailable(_reason)) => true,
         Some(Availability::Available) => false,
-        None if fail_on_missing => {
-            set_account_status(storage, account_id, "inactive", "usage_missing_snapshot");
-            true
-        }
+        None if fail_on_missing => true,
         None => false,
     }
 }

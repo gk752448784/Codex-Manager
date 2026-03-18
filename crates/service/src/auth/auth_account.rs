@@ -223,7 +223,11 @@ pub(crate) fn read_current_account(refresh_token: bool) -> Result<AccountReadRes
 
     let auth_mode = resolve_current_auth_mode(&token);
     Ok(AccountReadResponse {
-        account: Some(current_account_payload(&account, &token, auth_mode.as_str())),
+        account: Some(current_account_payload(
+            &account,
+            &token,
+            auth_mode.as_str(),
+        )),
         auth_mode: Some(auth_mode),
         requires_openai_auth: true,
     })
@@ -348,7 +352,11 @@ fn resolve_refresh_target(
     Ok(token.map(|token| (account, token)))
 }
 
-fn current_account_payload(account: &Account, token: &Token, auth_mode: &str) -> CurrentAuthAccount {
+fn current_account_payload(
+    account: &Account,
+    token: &Token,
+    auth_mode: &str,
+) -> CurrentAuthAccount {
     let claims = parse_id_token_claims(&token.access_token).ok();
     let plan_type_resolution = resolve_plan_type_resolution(token, claims.as_ref());
     CurrentAuthAccount {

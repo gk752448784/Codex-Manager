@@ -19,12 +19,15 @@ pub(crate) fn apply_status_from_snapshot(
     record: &UsageSnapshotRecord,
 ) -> Availability {
     let availability = evaluate_snapshot(record);
-    match availability {
-        Availability::Available => {
+    if matches!(availability, Availability::Available) {
+        let current_status = storage
+            .find_account_by_id(&record.account_id)
+            .ok()
+            .flatten()
+            .map(|account| account.status)
+            .unwrap_or_default();
+        if !current_status.trim().eq_ignore_ascii_case("disabled") {
             set_account_status(storage, &record.account_id, "active", "usage_ok");
-        }
-        Availability::Unavailable(reason) => {
-            set_account_status(storage, &record.account_id, "inactive", reason);
         }
     }
     availability

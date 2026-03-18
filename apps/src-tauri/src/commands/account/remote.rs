@@ -39,6 +39,29 @@ fn account_list_payload(
     }
 }
 
+fn account_update_payload(
+    account_id: String,
+    sort: Option<i64>,
+    status: Option<String>,
+) -> Option<serde_json::Value> {
+    let mut params = serde_json::Map::new();
+    params.insert("accountId".to_string(), serde_json::json!(account_id));
+    if let Some(value) = sort {
+        params.insert("sort".to_string(), serde_json::json!(value));
+    }
+    if let Some(value) = status {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            params.insert("status".to_string(), serde_json::json!(trimmed));
+        }
+    }
+    if params.is_empty() {
+        None
+    } else {
+        Some(serde_json::Value::Object(params))
+    }
+}
+
 #[tauri::command]
 pub async fn service_account_list(
     addr: Option<String>,
@@ -85,8 +108,49 @@ pub async fn service_account_delete_unavailable_free(
 pub async fn service_account_update(
     addr: Option<String>,
     account_id: String,
-    sort: i64,
+    sort: Option<i64>,
+    status: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let params = serde_json::json!({ "accountId": account_id, "sort": sort });
-    rpc_call_in_background("account/update", addr, Some(params)).await
+    rpc_call_in_background(
+        "account/update",
+        addr,
+        account_update_payload(account_id, sort, status),
+    )
+    .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::account_update_payload;
+
+    #[test]
+    fn account_update_payload_supports_status_only_updates() {
+        let actual = account_update_payload("acc-1".to_string(), None, Some("active".to_string()))
+            .expect("payload");
+        let expected = serde_json::json!({
+            "accountId": "acc-1",
+            "status": "active"
+        });
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn account_update_payload_supports_sort_only_updates() {
+        let actual = account_update_payload("acc-1".to_string(), Some(5), None).expect("payload");
+        let expected = serde_json::json!({
+            "accountId": "acc-1",
+            "sort": 5
+        });
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn account_update_payload_omits_blank_status() {
+        let actual = account_update_payload("acc-1".to_string(), None, Some("   ".to_string()))
+            .expect("payload");
+        let expected = serde_json::json!({
+            "accountId": "acc-1"
+        });
+        assert_eq!(actual, expected);
+    }
 }

@@ -186,10 +186,7 @@ pub(super) fn ensure_parallel_tool_calls_bool(
     true
 }
 
-pub(super) fn ensure_include_list(
-    path: &str,
-    obj: &mut serde_json::Map<String, Value>,
-) -> bool {
+pub(super) fn ensure_include_list(path: &str, obj: &mut serde_json::Map<String, Value>) -> bool {
     if !is_standard_responses_path(path) {
         return false;
     }

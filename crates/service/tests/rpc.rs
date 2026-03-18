@@ -536,7 +536,7 @@ fn rpc_account_update_status_toggles_manual_enable_disable() {
         method: "account/update".to_string(),
         params: Some(serde_json::json!({
             "accountId": "acc-0",
-            "status": "inactive"
+            "status": "disabled"
         })),
     };
     let disable_json = serde_json::to_string(&disable_req).expect("serialize");
@@ -548,11 +548,11 @@ fn rpc_account_update_status_toggles_manual_enable_disable() {
     );
 
     let storage = Storage::open(ctx.db_path()).expect("open db");
-    let inactive = storage
+    let disabled = storage
         .find_account_by_id("acc-0")
         .expect("find account")
         .expect("account exists");
-    assert_eq!(inactive.status, "inactive");
+    assert_eq!(disabled.status, "disabled");
 
     let enable_server = codexmanager_service::start_one_shot_server().expect("start server");
     let enable_req = JsonRpcRequest {

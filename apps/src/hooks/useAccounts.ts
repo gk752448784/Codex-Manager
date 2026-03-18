@@ -14,6 +14,10 @@ type ImportByFileResult = Awaited<ReturnType<typeof accountClient.importByFile>>
 type ExportResult = Awaited<ReturnType<typeof accountClient.export>>;
 type DeleteUnavailableFreeResult = { deleted?: number };
 
+function isAccountRefreshBlocked(status: string | null | undefined): boolean {
+  return String(status || "").trim().toLowerCase() === "disabled";
+}
+
 function buildImportSummaryMessage(result: ImportByDirectoryResult): string {
   const total = Number(result?.total || 0);
   const created = Number(result?.created || 0);
@@ -97,7 +101,7 @@ export function useAccounts() {
     mutationFn: () => accountClient.refreshUsage(),
     onSuccess: async () => {
       await invalidateAll();
-      toast.success("全部账号用量已刷新");
+      toast.success("账号用量已刷新");
     },
     onError: (error: unknown) => {
       toast.error(`刷新失败: ${getAppErrorMessage(error)}`);
@@ -155,17 +159,42 @@ export function useAccounts() {
   });
 
   const toggleAccountStatusMutation = useMutation({
-    mutationFn: ({ accountId, enabled }: { accountId: string; enabled: boolean }) =>
+    mutationFn: ({
+      accountId,
+      enabled,
+      sourceStatus,
+    }: {
+      accountId: string;
+      enabled: boolean;
+      sourceStatus?: string | null;
+    }) =>
       enabled
         ? accountClient.enableAccount(accountId)
         : accountClient.disableAccount(accountId),
     onSuccess: async (_result, variables) => {
       await invalidateAll();
-      toast.success(variables.enabled ? "账号已启用" : "账号已禁用");
+      const normalizedSourceStatus = String(variables.sourceStatus || "")
+        .trim()
+        .toLowerCase();
+      toast.success(
+        variables.enabled
+          ? normalizedSourceStatus === "inactive"
+            ? "账号已恢复"
+            : "账号已启用"
+          : "账号已禁用"
+      );
     },
     onError: (error: unknown, variables) => {
+      const normalizedSourceStatus = String(variables.sourceStatus || "")
+        .trim()
+        .toLowerCase();
+      const actionLabel = variables.enabled
+        ? normalizedSourceStatus === "inactive"
+          ? "恢复"
+          : "启用"
+        : "禁用";
       toast.error(
-        `${variables.enabled ? "启用" : "禁用"}账号失败: ${getAppErrorMessage(error)}`
+        `${actionLabel}账号失败: ${getAppErrorMessage(error)}`
       );
     },
   });
@@ -249,7 +278,13 @@ export function useAccounts() {
     isLoading: accountsQuery.isLoading || usagesQuery.isLoading,
     manualPreferredAccountId: manualPreferredAccountQuery.data || "",
     refreshAccount: (accountId: string) => refreshAccountMutation.mutate(accountId),
-    refreshAllAccounts: () => refreshAllMutation.mutate(),
+    refreshAllAccounts: () => {
+      if (!accounts.some((account) => !isAccountRefreshBlocked(account.status))) {
+        toast.info("当前没有可刷新的账号");
+        return;
+      }
+      refreshAllMutation.mutate();
+    },
     deleteAccount: (accountId: string) => deleteMutation.mutate(accountId),
     deleteManyAccounts: (accountIds: string[]) => deleteManyMutation.mutate(accountIds),
     deleteUnavailableFree: () => deleteUnavailableFreeMutation.mutate(),
@@ -260,8 +295,11 @@ export function useAccounts() {
     clearPreferredAccount: () => clearManualPreferredMutation.mutate(),
     updateAccountSort: (accountId: string, sort: number) =>
       updateAccountSortMutation.mutateAsync({ accountId, sort }),
-    toggleAccountStatus: (accountId: string, enabled: boolean) =>
-      toggleAccountStatusMutation.mutate({ accountId, enabled }),
+    toggleAccountStatus: (
+      accountId: string,
+      enabled: boolean,
+      sourceStatus?: string | null
+    ) => toggleAccountStatusMutation.mutate({ accountId, enabled, sourceStatus }),
     isRefreshingAccountId:
       refreshAccountMutation.isPending && typeof refreshAccountMutation.variables === "string"
         ? refreshAccountMutation.variables

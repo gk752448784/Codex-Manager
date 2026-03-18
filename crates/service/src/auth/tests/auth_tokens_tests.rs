@@ -364,7 +364,10 @@ fn exchange_code_for_tokens_matches_official_login_server_headers() {
     .expect("build exchange request");
 
     let find = |name: &str| {
-        request.headers().get(name).and_then(|value| value.to_str().ok())
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
     };
     let body = request
         .body()
@@ -388,12 +391,19 @@ fn exchange_code_for_tokens_matches_official_login_server_headers() {
 #[test]
 fn obtain_api_key_matches_official_login_server_headers() {
     let client = Client::builder().no_proxy().build().expect("build client");
-    let request =
-        build_api_key_exchange_request(&client, "http://127.0.0.1:1455", "client-test", "id-token-test")
-            .expect("build api key exchange request");
+    let request = build_api_key_exchange_request(
+        &client,
+        "http://127.0.0.1:1455",
+        "client-test",
+        "id-token-test",
+    )
+    .expect("build api key exchange request");
 
     let find = |name: &str| {
-        request.headers().get(name).and_then(|value| value.to_str().ok())
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
     };
     let body = request
         .body()

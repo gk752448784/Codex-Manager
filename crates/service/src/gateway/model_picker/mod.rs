@@ -177,9 +177,7 @@ fn normalize_model_picker_plan_tier(raw: &str) -> Option<ModelPickerPlanTier> {
 
     match normalized.as_str() {
         "pro" => Some(ModelPickerPlanTier::Pro),
-        "team" | "business" | "enterprise" | "edu" | "education" => {
-            Some(ModelPickerPlanTier::Team)
-        }
+        "team" | "business" | "enterprise" | "edu" | "education" => Some(ModelPickerPlanTier::Team),
         "plus" => Some(ModelPickerPlanTier::Plus),
         "go" => Some(ModelPickerPlanTier::Go),
         "free" => Some(ModelPickerPlanTier::Free),

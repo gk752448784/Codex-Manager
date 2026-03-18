@@ -132,7 +132,7 @@
       src="https://cdn3.linux.do/original/4X/d/1/4/d146c68151340881c884d95e0da4acdf369258c6.png?style=for-the-badge&logo=discourse&logoColor=white"
       alt="LINUX DO"
       width="100"
-      height="100"
+      hight="100"
     />
   </a>
 </p>

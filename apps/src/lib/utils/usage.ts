@@ -75,9 +75,16 @@ export function formatCompactNumber(
   return `${Math.round(normalized)}`;
 }
 
-function isInactiveAccount(account?: { status?: string } | null): boolean {
-  const normalized = String(account?.status || "").trim().toLowerCase();
-  return normalized === "inactive" || normalized === "disabled";
+function normalizedAccountStatus(account?: { status?: string } | null): string {
+  return String(account?.status || "").trim().toLowerCase();
+}
+
+function isDisabledAccount(account?: { status?: string } | null): boolean {
+  return normalizedAccountStatus(account) === "disabled";
+}
+
+function isRecoveryRequiredAccount(account?: { status?: string } | null): boolean {
+  return normalizedAccountStatus(account) === "inactive";
 }
 
 export function remainingPercent(value: number | null | undefined): number | null {
@@ -204,8 +211,11 @@ export function calcAvailability(
   usage?: Partial<AccountUsage> | null,
   account?: { status?: string } | null
 ): { text: string; level: AvailabilityLevel } {
-  if (isInactiveAccount(account)) {
+  if (isDisabledAccount(account)) {
     return { text: "已禁用", level: "bad" };
+  }
+  if (isRecoveryRequiredAccount(account)) {
+    return { text: "需恢复", level: "bad" };
   }
   if (!usage) {
     return { text: "未知", level: "unknown" };
@@ -243,10 +253,7 @@ export function calcAvailability(
 
   if (primaryMissing) return { text: "用量缺失", level: "bad" };
   if ((usage.usedPercent ?? 0) >= 100) {
-    return {
-      text: displayMode === "secondary-only" ? "7天已用尽" : "5小时已用尽",
-      level: displayMode === "secondary-only" ? "bad" : "warn",
-    };
+    return { text: "不可用", level: "bad" };
   }
   if (!secondaryPresent) {
     return {
@@ -258,7 +265,7 @@ export function calcAvailability(
     return { text: "用量缺失", level: "bad" };
   }
   if ((usage.secondaryUsedPercent ?? 0) >= 100) {
-    return { text: "7日已用尽", level: "bad" };
+    return { text: "不可用", level: "bad" };
   }
   return { text: "可用", level: "ok" };
 }

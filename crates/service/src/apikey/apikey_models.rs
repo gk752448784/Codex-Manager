@@ -21,7 +21,9 @@ pub(crate) fn read_model_options(refresh_remote: bool) -> Result<ApiKeyModelList
             if changed {
                 let _ = save_model_options_cache(&merged_items);
             }
-            Ok(ApiKeyModelListResult { items: merged_items })
+            Ok(ApiKeyModelListResult {
+                items: merged_items,
+            })
         }
         Err(err) => {
             if !cached.is_empty() {
@@ -54,7 +56,10 @@ fn read_cached_model_options() -> Result<Vec<ModelOption>, String> {
     Ok(items)
 }
 
-fn merge_model_options(cached: &[ModelOption], fetched: &[ModelOption]) -> (Vec<ModelOption>, bool) {
+fn merge_model_options(
+    cached: &[ModelOption],
+    fetched: &[ModelOption],
+) -> (Vec<ModelOption>, bool) {
     let mut merged = cached
         .iter()
         .map(|item| ModelOption {
@@ -98,7 +103,8 @@ mod tests {
     use super::merge_model_options;
 
     fn as_pairs(items: &[ModelOption]) -> Vec<(String, String)> {
-        items.iter()
+        items
+            .iter()
             .map(|item| (item.slug.clone(), item.display_name.clone()))
             .collect()
     }
