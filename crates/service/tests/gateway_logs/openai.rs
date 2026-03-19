@@ -1536,7 +1536,7 @@ fn gateway_chatgpt_primary_preserves_turn_state_headers_without_openai_fallback(
     );
     assert_eq!(
         first.headers.get("x-client-request-id").map(String::as_str),
-        Some("req_dummy")
+        Some("conv_dummy")
     );
     assert_eq!(
         first.headers.get("x-openai-subagent").map(String::as_str),
@@ -1747,7 +1747,13 @@ fn gateway_chatgpt_primary_uses_prompt_cache_anchor_for_session_without_inventin
         captured.headers.get("session_id").map(String::as_str),
         Some("conv_anchor_primary")
     );
-    assert!(!captured.headers.contains_key("x-client-request-id"));
+    assert_eq!(
+        captured
+            .headers
+            .get("x-client-request-id")
+            .map(String::as_str),
+        Some("conv_anchor_primary")
+    );
     assert!(!captured.headers.contains_key("x-codex-turn-state"));
     assert!(!captured.headers.contains_key("conversation_id"));
 

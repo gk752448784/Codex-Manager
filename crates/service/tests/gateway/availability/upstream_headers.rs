@@ -111,7 +111,7 @@ fn codex_header_profile_sets_required_headers_for_stream() {
         Some("turn-state")
     );
     assert!(find_header(&headers, "Conversation_id").is_none());
-    assert!(find_header(&headers, "session_id").is_some());
+    assert!(find_header(&headers, "session_id").is_none());
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn codex_header_profile_uses_dynamic_originator_and_residency_requirement() {
 
     assert_eq!(
         find_header(&headers, "Originator").as_deref(),
-        Some("codex_cli_rs_e2e")
+        Some("codex_cli_rs")
     );
     assert_eq!(
         find_header(&headers, "x-openai-internal-codex-residency").as_deref(),
@@ -263,7 +263,7 @@ fn codex_header_profile_uses_dynamic_originator_and_residency_requirement() {
     );
     assert!(find_header(&headers, "User-Agent")
         .as_deref()
-        .is_some_and(|value| value.contains("codex_cli_rs_e2e/0.101.0")));
+        .is_some_and(|value| value.contains("codex_cli_rs/0.101.0")));
 }
 
 #[test]
@@ -290,6 +290,10 @@ fn codex_header_profile_regenerates_session_on_failover() {
     assert_ne!(
         find_header(&headers, "session_id").as_deref(),
         Some("sticky-session")
+    );
+    assert_eq!(
+        find_header(&headers, "session_id").as_deref(),
+        Some("fallback-session")
     );
     assert!(find_header(&headers, "x-codex-turn-state").is_none());
     assert!(find_header(&headers, "Conversation_id").is_none());

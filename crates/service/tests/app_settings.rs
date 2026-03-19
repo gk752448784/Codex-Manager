@@ -27,6 +27,7 @@ fn reset_runtime_defaults() {
         "freeAccountMaxModel": "gpt-5.2",
         "requestCompressionEnabled": true,
         "gatewayOriginator": "codex_cli_rs",
+        "gatewayUserAgentVersion": "0.101.0",
         "gatewayResidencyRequirement": "",
         "appearancePreset": "classic",
         "lightweightModeOnCloseToTray": false,
@@ -181,6 +182,7 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
             "freeAccountMaxModel": "gpt-5.3-codex",
             "requestCompressionEnabled": false,
             "gatewayOriginator": "codex_cli_rs_test",
+            "gatewayUserAgentVersion": "0.101.2",
             "gatewayResidencyRequirement": "us",
             "upstreamProxyUrl": "http://127.0.0.1:7890",
             "upstreamStreamTimeoutMs": 654321,
@@ -274,6 +276,12 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
         );
         assert_eq!(
             snapshot
+                .get("gatewayUserAgentVersion")
+                .and_then(|value| value.as_str()),
+            Some("0.101.2")
+        );
+        assert_eq!(
+            snapshot
                 .get("gatewayResidencyRequirement")
                 .and_then(|value| value.as_str()),
             Some("us")
@@ -324,6 +332,12 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
                 .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_ORIGINATOR_KEY)
                 .expect("read gateway originator"),
             Some("codex_cli_rs_test".to_string())
+        );
+        assert_eq!(
+            storage
+                .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY)
+                .expect("read gateway user agent version"),
+            Some("0.101.2".to_string())
         );
         assert_eq!(
             storage
@@ -420,6 +434,13 @@ fn sync_runtime_settings_from_storage_applies_saved_runtime_values() {
             .expect("save gateway originator");
         storage
             .set_app_setting(
+                codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
+                "0.101.3",
+                now_ts(),
+            )
+            .expect("save gateway user agent version");
+        storage
+            .set_app_setting(
                 codexmanager_service::APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY,
                 "us",
                 now_ts(),
@@ -509,6 +530,12 @@ fn sync_runtime_settings_from_storage_applies_saved_runtime_values() {
         );
         assert_eq!(
             snapshot
+                .get("gatewayUserAgentVersion")
+                .and_then(|value| value.as_str()),
+            Some("0.101.3")
+        );
+        assert_eq!(
+            snapshot
                 .get("gatewayResidencyRequirement")
                 .and_then(|value| value.as_str()),
             Some("us")
@@ -572,6 +599,7 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
             codexmanager_service::APP_SETTING_GATEWAY_FREE_ACCOUNT_MAX_MODEL_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_ORIGINATOR_KEY,
+            codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY,
@@ -643,6 +671,12 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
                 .get("gatewayOriginator")
                 .and_then(|value| value.as_str()),
             Some("codex_cli_rs_env")
+        );
+        assert_eq!(
+            snapshot
+                .get("gatewayUserAgentVersion")
+                .and_then(|value| value.as_str()),
+            Some("0.101.0")
         );
         assert_eq!(
             snapshot
@@ -737,6 +771,12 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
                 .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_ORIGINATOR_KEY)
                 .expect("read gateway originator"),
             Some("codex_cli_rs_env".to_string())
+        );
+        assert_eq!(
+            storage
+                .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY)
+                .expect("read gateway user agent version"),
+            Some("0.101.0".to_string())
         );
         assert_eq!(
             storage

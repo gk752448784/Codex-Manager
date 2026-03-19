@@ -27,6 +27,7 @@ static UPSTREAM_COOKIE: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 static UPSTREAM_PROXY_URL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 static FREE_ACCOUNT_MAX_MODEL: OnceLock<RwLock<String>> = OnceLock::new();
 static ORIGINATOR: OnceLock<RwLock<String>> = OnceLock::new();
+static CODEX_USER_AGENT_VERSION: OnceLock<RwLock<String>> = OnceLock::new();
 static RESIDENCY_REQUIREMENT: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 static TOKEN_EXCHANGE_CLIENT_ID: OnceLock<RwLock<String>> = OnceLock::new();
 static TOKEN_EXCHANGE_ISSUER: OnceLock<RwLock<String>> = OnceLock::new();
@@ -43,6 +44,7 @@ const DEFAULT_REQUEST_GATE_WAIT_TIMEOUT_MS: u64 = 300;
 const DEFAULT_TRACE_BODY_PREVIEW_MAX_BYTES: usize = 0;
 const DEFAULT_FRONT_PROXY_MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
 const DEFAULT_FREE_ACCOUNT_MAX_MODEL: &str = "auto";
+const DEFAULT_CODEX_USER_AGENT_VERSION: &str = "0.101.0";
 const MAX_UPSTREAM_PROXY_POOL_SIZE: usize = 5;
 
 const ENV_REQUEST_GATE_WAIT_TIMEOUT_MS: &str = "CODEXMANAGER_REQUEST_GATE_WAIT_TIMEOUT_MS";
@@ -222,6 +224,10 @@ pub(crate) fn current_originator() -> String {
     crate::lock_utils::read_recover(originator_cell(), "originator").clone()
 }
 
+pub(crate) fn current_wire_originator() -> String {
+    DEFAULT_ORIGINATOR.to_string()
+}
+
 pub(crate) fn set_originator(originator: &str) -> Result<String, String> {
     ensure_runtime_config_loaded();
     let normalized = normalize_originator(originator)?;
@@ -231,15 +237,36 @@ pub(crate) fn set_originator(originator: &str) -> Result<String, String> {
     Ok(normalized)
 }
 
+pub(crate) fn current_codex_user_agent_version() -> String {
+    ensure_runtime_config_loaded();
+    crate::lock_utils::read_recover(codex_user_agent_version_cell(), "codex_user_agent_version")
+        .clone()
+}
+
+pub(crate) fn set_codex_user_agent_version(version: &str) -> Result<String, String> {
+    ensure_runtime_config_loaded();
+    let normalized = normalize_codex_user_agent_version(version)?;
+    let mut cached = crate::lock_utils::write_recover(
+        codex_user_agent_version_cell(),
+        "codex_user_agent_version",
+    );
+    *cached = normalized.clone();
+    Ok(normalized)
+}
+
 pub(crate) fn current_codex_user_agent() -> String {
     ensure_runtime_config_loaded();
-    let originator = current_originator();
+    let originator = current_wire_originator();
+    let version = current_codex_user_agent_version();
+    let os_info = os_info::get();
     format!(
-        "{}/{} ({}; {}) CodexManagerGateway",
+        "{}/{} ({} {}; {}) {}",
         originator,
-        "0.101.0",
-        std::env::consts::OS,
-        std::env::consts::ARCH
+        version,
+        os_info.os_type(),
+        os_info.version(),
+        os_info.architecture().unwrap_or("unknown"),
+        current_codex_terminal_user_agent_token()
     )
 }
 
@@ -431,6 +458,13 @@ pub(super) fn reload_from_env() {
     *cached_originator = originator;
     drop(cached_originator);
 
+    let mut cached_user_agent_version = crate::lock_utils::write_recover(
+        codex_user_agent_version_cell(),
+        "codex_user_agent_version",
+    );
+    *cached_user_agent_version = DEFAULT_CODEX_USER_AGENT_VERSION.to_string();
+    drop(cached_user_agent_version);
+
     let residency_requirement = env_non_empty(ENV_RESIDENCY_REQUIREMENT)
         .and_then(|value| normalize_residency_requirement(Some(value.as_str())).ok())
         .flatten();
@@ -519,6 +553,11 @@ fn originator_cell() -> &'static RwLock<String> {
     ORIGINATOR.get_or_init(|| RwLock::new(DEFAULT_ORIGINATOR.to_string()))
 }
 
+fn codex_user_agent_version_cell() -> &'static RwLock<String> {
+    CODEX_USER_AGENT_VERSION
+        .get_or_init(|| RwLock::new(DEFAULT_CODEX_USER_AGENT_VERSION.to_string()))
+}
+
 fn residency_requirement_cell() -> &'static RwLock<Option<String>> {
     RESIDENCY_REQUIREMENT.get_or_init(|| RwLock::new(None))
 }
@@ -603,6 +642,51 @@ fn normalize_originator(raw: &str) -> Result<String, String> {
         return Err("originator contains control characters".to_string());
     }
     Ok(normalized.to_string())
+}
+
+fn normalize_codex_user_agent_version(raw: &str) -> Result<String, String> {
+    let normalized = raw.trim();
+    if normalized.is_empty() {
+        return Err("codexUserAgentVersion is required".to_string());
+    }
+    if normalized.chars().any(|ch| ch.is_ascii_control()) {
+        return Err("codexUserAgentVersion contains control characters".to_string());
+    }
+    if normalized
+        .chars()
+        .any(|ch| !(ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_' | '+')))
+    {
+        return Err("codexUserAgentVersion contains unsupported characters".to_string());
+    }
+    Ok(normalized.to_string())
+}
+
+fn current_codex_terminal_user_agent_token() -> String {
+    if let Some(program) = env_non_empty("TERM_PROGRAM") {
+        if let Some(version) = env_non_empty("TERM_PROGRAM_VERSION") {
+            return sanitize_user_agent_token(format!("{program}/{version}"));
+        }
+        return sanitize_user_agent_token(program);
+    }
+    if std::env::var_os("WT_SESSION").is_some() {
+        return "WindowsTerminal".to_string();
+    }
+    if let Some(term) = env_non_empty("TERM") {
+        return sanitize_user_agent_token(term);
+    }
+    "unknown".to_string()
+}
+
+fn sanitize_user_agent_token(raw: String) -> String {
+    let sanitized: String = raw
+        .chars()
+        .map(|ch| if matches!(ch, ' '..='~') { ch } else { '_' })
+        .collect();
+    let trimmed = sanitized.trim();
+    if trimmed.is_empty() {
+        return "unknown".to_string();
+    }
+    trimmed.replace('(', "_").replace(')', "_")
 }
 
 fn normalize_residency_requirement(raw: Option<&str>) -> Result<Option<String>, String> {

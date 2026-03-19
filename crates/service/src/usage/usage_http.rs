@@ -295,7 +295,7 @@ fn build_usage_http_client() -> Client {
 
 fn build_usage_http_default_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
-    if let Ok(value) = HeaderValue::from_str(&crate::gateway::current_originator()) {
+    if let Ok(value) = HeaderValue::from_str(&crate::gateway::current_wire_originator()) {
         headers.insert(HeaderName::from_static("originator"), value);
     }
     if let Some(residency_requirement) = crate::gateway::current_residency_requirement() {

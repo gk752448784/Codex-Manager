@@ -8,7 +8,7 @@ use super::{
     APP_SETTING_GATEWAY_ORIGINATOR_KEY, APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
     APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY, APP_SETTING_GATEWAY_ROUTE_STRATEGY_KEY,
     APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY, APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
-    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY,
+    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY, APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
 };
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -82,6 +82,16 @@ pub fn set_gateway_originator(originator: &str) -> Result<String, String> {
 
 pub fn current_gateway_originator() -> String {
     gateway::current_originator()
+}
+
+pub fn set_gateway_user_agent_version(version: &str) -> Result<String, String> {
+    let applied = gateway::set_codex_user_agent_version(version)?;
+    save_persisted_app_setting(APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY, Some(&applied))?;
+    Ok(applied)
+}
+
+pub fn current_gateway_user_agent_version() -> String {
+    gateway::current_codex_user_agent_version()
 }
 
 pub fn set_gateway_residency_requirement(value: Option<&str>) -> Result<Option<String>, String> {

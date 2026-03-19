@@ -21,7 +21,7 @@ pub(crate) fn login_start(
         std::env::var("CODEXMANAGER_ISSUER").unwrap_or_else(|_| DEFAULT_ISSUER.to_string());
     let client_id =
         std::env::var("CODEXMANAGER_CLIENT_ID").unwrap_or_else(|_| DEFAULT_CLIENT_ID.to_string());
-    let originator = crate::gateway::current_originator();
+    let originator = crate::gateway::current_wire_originator();
     if login_type != "device" {
         ensure_login_server()?;
     }

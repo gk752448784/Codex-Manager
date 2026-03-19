@@ -84,9 +84,7 @@ pub(in super::super) fn prepare_request_setup(
         candidate_count,
         account_max_inflight,
         anthropic_has_prompt_cache_key,
-        has_sticky_fallback_session:
-            super::super::header_profile::derive_sticky_session_id_from_headers(incoming_headers)
-                .is_some(),
+        has_sticky_fallback_session: false,
         has_sticky_fallback_conversation:
             super::super::header_profile::derive_sticky_conversation_id_from_headers(
                 incoming_headers,

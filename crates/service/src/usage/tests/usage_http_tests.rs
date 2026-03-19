@@ -229,7 +229,7 @@ fn usage_http_default_headers_follow_gateway_runtime_profile() {
         headers
             .get("originator")
             .and_then(|value| value.to_str().ok()),
-        Some("codex_cli_rs_usage")
+        Some("codex_cli_rs")
     );
     assert_eq!(
         headers

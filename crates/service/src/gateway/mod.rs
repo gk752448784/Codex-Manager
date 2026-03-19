@@ -258,8 +258,20 @@ pub(crate) fn current_originator() -> String {
     runtime_config::current_originator()
 }
 
+pub(crate) fn current_wire_originator() -> String {
+    runtime_config::current_wire_originator()
+}
+
+pub(crate) fn current_codex_user_agent_version() -> String {
+    runtime_config::current_codex_user_agent_version()
+}
+
 pub(crate) fn set_originator(originator: &str) -> Result<String, String> {
     runtime_config::set_originator(originator)
+}
+
+pub(crate) fn set_codex_user_agent_version(version: &str) -> Result<String, String> {
+    runtime_config::set_codex_user_agent_version(version)
 }
 
 pub(crate) fn current_residency_requirement() -> Option<String> {

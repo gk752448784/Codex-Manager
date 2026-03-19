@@ -226,6 +226,7 @@ export interface AppSettings {
   freeAccountMaxModelOptions: string[];
   requestCompressionEnabled: boolean;
   gatewayOriginator: string;
+  gatewayUserAgentVersion: string;
   gatewayResidencyRequirement: string;
   gatewayResidencyRequirementOptions: string[];
   upstreamProxyUrl: string;

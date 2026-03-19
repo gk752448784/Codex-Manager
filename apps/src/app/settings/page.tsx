@@ -237,6 +237,7 @@ export default function SettingsPage() {
   const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
   const [upstreamProxyDraft, setUpstreamProxyDraft] = useState<string | null>(null);
   const [gatewayOriginatorDraft, setGatewayOriginatorDraft] = useState<string | null>(null);
+  const [gatewayUserAgentVersionDraft, setGatewayUserAgentVersionDraft] = useState<string | null>(null);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<UpdateCheckSummary | null>(null);
   const [updateDialogCheck, setUpdateDialogCheck] = useState<UpdateCheckSummary | null>(null);
   const [preparedUpdate, setPreparedUpdate] = useState<UpdatePrepareSummary | null>(null);
@@ -405,6 +406,8 @@ export default function SettingsPage() {
   const upstreamProxyInput = upstreamProxyDraft ?? (snapshot?.upstreamProxyUrl || "");
   const gatewayOriginatorInput =
     gatewayOriginatorDraft ?? (snapshot?.gatewayOriginator || "codex_cli_rs");
+  const gatewayUserAgentVersionInput =
+    gatewayUserAgentVersionDraft ?? (snapshot?.gatewayUserAgentVersion || "0.101.0");
   const transportInputValues = {
     sseKeepaliveIntervalMs:
       transportDraft.sseKeepaliveIntervalMs ??
@@ -948,6 +951,30 @@ export default function SettingsPage() {
                 />
                 <p className="text-[10px] text-muted-foreground">
                   对齐官方 Codex 的上游 Originator。默认值为 <code>codex_cli_rs</code>，会同步影响登录和网关上游请求头。
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>User-Agent 版本</Label>
+                <Input
+                  className="h-10 max-w-md font-mono"
+                  value={gatewayUserAgentVersionInput}
+                  onChange={(event) => setGatewayUserAgentVersionDraft(event.target.value)}
+                  onBlur={() => {
+                    if (gatewayUserAgentVersionDraft == null) return;
+                    if (gatewayUserAgentVersionInput === (snapshot.gatewayUserAgentVersion || "0.101.0")) {
+                      setGatewayUserAgentVersionDraft(null);
+                      return;
+                    }
+                    void updateSettings
+                      .mutateAsync({ gatewayUserAgentVersion: gatewayUserAgentVersionInput })
+                      .then(() => setGatewayUserAgentVersionDraft(null))
+                      .catch(() => undefined);
+                  }}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  控制真实出站 <code>User-Agent</code> 里的版本号，默认值为 <code>0.101.0</code>。
+                  官方 Codex 升级后，可以在这里手动同步。
                 </p>
               </div>
 

@@ -1,5 +1,3 @@
-use super::sticky_ids::random_session_id;
-
 pub(crate) const CODEX_CLIENT_VERSION: &str = "0.101.0";
 
 pub(crate) struct CodexUpstreamHeaderInput<'a> {
@@ -35,11 +33,6 @@ pub(crate) fn build_codex_upstream_headers(
     input: CodexUpstreamHeaderInput<'_>,
 ) -> Vec<(String, String)> {
     let mut headers = Vec::with_capacity(10);
-    let resolved_session_id = resolve_session_id(
-        input.incoming_session_id,
-        input.fallback_session_id,
-        input.strip_session_affinity,
-    );
     headers.push((
         "Authorization".to_string(),
         format!("Bearer {}", input.auth_token),
@@ -62,7 +55,7 @@ pub(crate) fn build_codex_upstream_headers(
     ));
     headers.push((
         "originator".to_string(),
-        crate::gateway::current_originator(),
+        crate::gateway::current_wire_originator(),
     ));
     if let Some(residency_requirement) = crate::gateway::current_residency_requirement() {
         headers.push((
@@ -100,7 +93,13 @@ pub(crate) fn build_codex_upstream_headers(
             turn_metadata.to_string(),
         ));
     }
-    headers.push(("session_id".to_string(), resolved_session_id));
+    if let Some(session_id) = resolve_optional_session_id(
+        input.incoming_session_id,
+        input.fallback_session_id,
+        input.strip_session_affinity,
+    ) {
+        headers.push(("session_id".to_string(), session_id));
+    }
 
     if !input.strip_session_affinity {
         if input.include_turn_state {
@@ -142,7 +141,7 @@ pub(crate) fn build_codex_compact_upstream_headers(
     ));
     headers.push((
         "originator".to_string(),
-        crate::gateway::current_originator(),
+        crate::gateway::current_wire_originator(),
     ));
     if let Some(residency_requirement) = crate::gateway::current_residency_requirement() {
         headers.push((
@@ -172,36 +171,16 @@ pub(crate) fn build_codex_compact_upstream_headers(
     headers
 }
 
-fn resolve_session_id(
-    incoming: Option<&str>,
-    fallback_session_id: Option<&str>,
-    strip_session_affinity: bool,
-) -> String {
-    if strip_session_affinity {
-        return random_session_id();
-    }
-    if let Some(value) = incoming {
-        let trimmed = value.trim();
-        if !trimmed.is_empty() {
-            return trimmed.to_string();
-        }
-    }
-    if let Some(value) = fallback_session_id {
-        let trimmed = value.trim();
-        if !trimmed.is_empty() {
-            return trimmed.to_string();
-        }
-    }
-    random_session_id()
-}
-
 fn resolve_optional_session_id(
     incoming: Option<&str>,
     fallback_session_id: Option<&str>,
     strip_session_affinity: bool,
 ) -> Option<String> {
     if strip_session_affinity {
-        return None;
+        return fallback_session_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
     }
     if let Some(value) = incoming {
         let trimmed = value.trim();

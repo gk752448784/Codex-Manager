@@ -205,7 +205,18 @@ fn set_originator_updates_env_and_dynamic_user_agent() {
         std::env::var(ENV_ORIGINATOR).ok().as_deref(),
         Some("codex_cli_rs_windows")
     );
-    assert!(current_codex_user_agent().contains("codex_cli_rs_windows/0.101.0"));
+    assert!(current_codex_user_agent().contains("codex_cli_rs/0.101.0"));
+}
+
+#[test]
+fn set_codex_user_agent_version_updates_env_and_user_agent() {
+    let _guard = test_guard();
+
+    let applied = set_codex_user_agent_version("0.102.1").expect("set codex user agent version");
+
+    assert_eq!(applied, "0.102.1");
+    assert_eq!(current_codex_user_agent_version(), "0.102.1");
+    assert!(current_codex_user_agent().contains("codex_cli_rs/0.102.1"));
 }
 
 #[test]
