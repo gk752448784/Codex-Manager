@@ -148,6 +148,6 @@
 - 公众号：七线牛马
 - 微信： ProsperGao
 
-- 交流圈：
+- 交流群：答案是项目名：CodexManager
 
   <img src="assets/images/qq_group.jpg" alt="交流群二维码" width="280" />
