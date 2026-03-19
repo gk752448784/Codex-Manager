@@ -1,6 +1,6 @@
 use codexmanager_core::auth::{
-    extract_chatgpt_account_id, extract_workspace_id, parse_id_token_claims, DEFAULT_CLIENT_ID,
-    DEFAULT_ISSUER,
+    extract_chatgpt_account_id, extract_workspace_id, extract_workspace_title,
+    parse_id_token_claims, DEFAULT_CLIENT_ID, DEFAULT_ISSUER,
 };
 use codexmanager_core::storage::{now_ts, Account, Storage, Token};
 use serde::Serialize;
@@ -115,6 +115,11 @@ pub(crate) fn login_with_chatgpt_auth_tokens(
         .clone()
         .or_else(|| chatgpt_account_id.clone())
         .ok_or_else(|| "chatgptAccountId/workspaceId is required".to_string())?;
+    let workspace_title = input
+        .id_token
+        .as_deref()
+        .and_then(|token| extract_workspace_title(token, workspace_id.as_deref()))
+        .or_else(|| extract_workspace_title(access_token, workspace_id.as_deref()));
 
     let fallback_subject_key = build_fallback_subject_key(Some(subject_account_id), None);
     let account_storage_id = build_account_storage_id(
@@ -148,7 +153,8 @@ pub(crate) fn login_with_chatgpt_auth_tokens(
         workspace_id: workspace_id.clone(),
         group_name: existing_account
             .as_ref()
-            .and_then(|account| account.group_name.clone()),
+            .and_then(|account| account.group_name.clone())
+            .or(workspace_title),
         sort: existing_account
             .as_ref()
             .map(|account| account.sort)
@@ -448,6 +454,12 @@ fn normalize_plan_type(value: String) -> Option<ResolvedPlanType> {
 
 pub(crate) fn set_current_auth_account_id(account_id: Option<&str>) -> Result<(), String> {
     save_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY, account_id)
+}
+
+pub(crate) fn current_auth_account_id() -> Option<String> {
+    get_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 pub(crate) fn set_current_auth_mode(auth_mode: Option<&str>) -> Result<(), String> {

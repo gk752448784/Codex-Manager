@@ -28,6 +28,17 @@ pub struct AuthClaims {
     pub chatgpt_user_id: Option<String>,
     #[serde(default)]
     pub user_id: Option<String>,
+    #[serde(default)]
+    pub organizations: Vec<OrganizationClaim>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct OrganizationClaim {
+    pub id: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -192,6 +203,39 @@ pub fn extract_workspace_name(token: &str) -> Option<String> {
         }
     }
     None
+}
+
+pub fn extract_workspace_title(token: &str, workspace_id: Option<&str>) -> Option<String> {
+    let claims = parse_id_token_claims(token).ok()?;
+    let auth = claims.auth?;
+    let organizations = auth.organizations;
+    if organizations.is_empty() {
+        return None;
+    }
+
+    let wanted = workspace_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(wanted) = wanted {
+        if let Some(found) = organizations.iter().find(|org| org.id.trim() == wanted) {
+            return found
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+        }
+    }
+
+    organizations
+        .iter()
+        .find(|org| org.is_default)
+        .or_else(|| organizations.first())
+        .and_then(|org| org.title.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 pub fn build_authorize_url(

@@ -1,5 +1,9 @@
 import { invoke, invokeFirst } from "./transport";
-import { AppSettings } from "../../types";
+import {
+  AppSettings,
+  LocalCodexImportResult,
+  LocalCodexStatus,
+} from "../../types";
 import { normalizeAppSettings } from "./normalize";
 
 export const appClient = {
@@ -17,6 +21,11 @@ export const appClient = {
     invoke("app_close_to_tray_on_close_set", { enabled }),
 
   openInBrowser: (url: string) => invoke("open_in_browser", { url }),
+  getLocalCodexStatus: () => invoke<LocalCodexStatus>("app_local_codex_status"),
+  importCurrentLocalCodexAuth: () =>
+    invoke<LocalCodexImportResult>("app_local_codex_import_current_auth"),
+  switchLocalCodexWorkspace: (accountId: string) =>
+    invoke<LocalCodexStatus>("app_local_codex_switch_workspace", { accountId }),
 
   checkUpdate: () =>
     invokeFirst<unknown>(["app_update_check", "update_check", "check_update"], {}),

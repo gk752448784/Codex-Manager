@@ -1,12 +1,13 @@
 use codexmanager_core::auth::{
-    extract_chatgpt_account_id, extract_workspace_id, parse_id_token_claims,
-    token_exchange_body_authorization_code, token_exchange_body_token_exchange, IdTokenClaims,
-    DEFAULT_CLIENT_ID, DEFAULT_ISSUER,
+    extract_chatgpt_account_id, extract_workspace_id, extract_workspace_title,
+    parse_id_token_claims, token_exchange_body_authorization_code,
+    token_exchange_body_token_exchange, IdTokenClaims, DEFAULT_CLIENT_ID, DEFAULT_ISSUER,
 };
 use codexmanager_core::storage::{now_ts, Account, Token};
 use reqwest::blocking::Client;
 use reqwest::header::HeaderMap;
 use reqwest::Error as ReqwestError;
+use reqwest::Proxy;
 use serde::de::DeserializeOwned;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -467,13 +468,30 @@ pub(crate) fn next_account_sort(storage: &codexmanager_core::storage::Storage) -
 }
 
 fn openai_auth_http_client() -> &'static Client {
-    OPENAI_AUTH_HTTP_CLIENT.get_or_init(|| {
-        Client::builder()
-            .connect_timeout(OPENAI_AUTH_CONNECT_TIMEOUT)
-            .timeout(OPENAI_AUTH_TOTAL_TIMEOUT)
-            .build()
-            .unwrap_or_else(|_| Client::new())
-    })
+    OPENAI_AUTH_HTTP_CLIENT.get_or_init(build_auth_http_client)
+}
+
+fn build_auth_http_client() -> Client {
+    let mut builder = Client::builder()
+        .connect_timeout(OPENAI_AUTH_CONNECT_TIMEOUT)
+        .timeout(OPENAI_AUTH_TOTAL_TIMEOUT);
+
+    if let Some(proxy_url) = crate::gateway::current_upstream_proxy_url() {
+        match Proxy::all(proxy_url.as_str()) {
+            Ok(proxy) => {
+                builder = builder.proxy(proxy);
+            }
+            Err(err) => {
+                log::warn!(
+                    "event=auth_http_proxy_invalid proxy={} err={}",
+                    proxy_url,
+                    err
+                );
+            }
+        }
+    }
+
+    builder.build().unwrap_or_else(|_| Client::new())
 }
 
 pub(crate) fn issuer_uses_loopback_host(issuer: &str) -> bool {
@@ -573,6 +591,8 @@ pub(crate) fn complete_login_with_redirect(
             .or_else(|| extract_workspace_id(&tokens.access_token))
             .or_else(|| chatgpt_account_id.clone()),
     );
+    let workspace_title = extract_workspace_title(&tokens.id_token, workspace_id.as_deref())
+        .or_else(|| extract_workspace_title(&tokens.access_token, workspace_id.as_deref()));
     let fallback_subject_key =
         build_fallback_subject_key(Some(&subject_account_id), session.tags.as_deref());
     let account_storage_id = build_account_storage_id(
@@ -608,7 +628,7 @@ pub(crate) fn complete_login_with_redirect(
         issuer: issuer.clone(),
         chatgpt_account_id,
         workspace_id,
-        group_name: session.group_name.clone(),
+        group_name: session.group_name.clone().or(workspace_title),
         sort,
         status: "active".to_string(),
         created_at,

@@ -56,6 +56,10 @@ macro_rules! invoke_handler {
             crate::commands::login::service_account_read,
             crate::commands::login::service_account_logout,
             crate::commands::login::service_chatgpt_auth_tokens_refresh,
+            // local codex
+            crate::commands::local_codex::app_local_codex_status,
+            crate::commands::local_codex::app_local_codex_import_current_auth,
+            crate::commands::local_codex::app_local_codex_switch_workspace,
             // api key
             crate::commands::apikey::service_apikey_list,
             crate::commands::apikey::service_apikey_read_secret,

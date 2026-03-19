@@ -4,8 +4,8 @@
   "version": "0.1.10",
   "identifier": "com.codexmanager.desktop",
   "build": {
-    "beforeDevCommand": "if exist package.json (pnpm --dir . run dev:desktop) else if exist apps\\package.json (pnpm --dir apps run dev:desktop) else if exist ..\\package.json (pnpm --dir .. run dev:desktop) else (echo apps/package.json not found from cwd: %cd% & exit /b 1)",
-    "beforeBuildCommand": "if exist package.json (pnpm --dir . run build:desktop) else if exist apps\\package.json (pnpm --dir apps run build:desktop) else if exist ..\\package.json (pnpm --dir .. run build:desktop) else (echo apps/package.json not found from cwd: %cd% & exit /b 1)",
+    "beforeDevCommand": "node -e \"const fs=require('node:fs');const path=require('node:path');const cp=require('node:child_process');const script=process.argv[1];const candidates=[process.cwd(),path.resolve(process.cwd(),'apps'),path.resolve(process.cwd(),'..')];const appsDir=candidates.find((dir)=>fs.existsSync(path.join(dir,'package.json'))&&fs.existsSync(path.join(dir,'src-tauri','tauri.conf.json')));if(!appsDir){console.error('apps/package.json not found from cwd: '+process.cwd());process.exit(1);}const result=cp.spawnSync('corepack',['pnpm','--dir',appsDir,'run',script],{stdio:'inherit',shell:process.platform==='win32'});process.exit(result.status??1);\" dev:desktop",
+    "beforeBuildCommand": "node -e \"const fs=require('node:fs');const path=require('node:path');const cp=require('node:child_process');const script=process.argv[1];const candidates=[process.cwd(),path.resolve(process.cwd(),'apps'),path.resolve(process.cwd(),'..')];const appsDir=candidates.find((dir)=>fs.existsSync(path.join(dir,'package.json'))&&fs.existsSync(path.join(dir,'src-tauri','tauri.conf.json')));if(!appsDir){console.error('apps/package.json not found from cwd: '+process.cwd());process.exit(1);}const result=cp.spawnSync('corepack',['pnpm','--dir',appsDir,'run',script],{stdio:'inherit',shell:process.platform==='win32'});process.exit(result.status??1);\" build:desktop",
     "devUrl": "http://127.0.0.1:3005",
     "frontendDist": "../out"
   },
@@ -25,7 +25,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "app",
+      "dmg",
+      "appimage",
+      "deb"
+    ],
     "icon": [
       "icons/icon.ico",
       "icons/icon.png",

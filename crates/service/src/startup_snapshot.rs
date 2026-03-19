@@ -14,6 +14,7 @@ pub(crate) fn read_startup_snapshot(
     let api_keys = apikey_list::read_api_keys()?;
     let api_model_options = apikey_models::read_model_options(false)?.items;
     let manual_preferred_account_id = gateway::manual_preferred_account();
+    let current_auth_account_id = crate::auth_account::current_auth_account_id();
     let request_log_today_summary = requestlog_today_summary::read_requestlog_today_summary()?;
     let request_logs = requestlog_list::read_request_logs(None, request_log_limit)?;
 
@@ -24,6 +25,7 @@ pub(crate) fn read_startup_snapshot(
         api_keys,
         api_model_options,
         manual_preferred_account_id,
+        current_auth_account_id,
         request_log_today_summary,
         request_logs,
     })

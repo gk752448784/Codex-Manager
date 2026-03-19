@@ -169,6 +169,8 @@ export function normalizeAccount(item: unknown, usage?: AccountUsage | null): Ac
     priority: asInteger(source.sort ?? source.priority, 0, 0),
     label: name,
     groupName,
+    workspaceId: asString(source.workspaceId ?? source.workspace_id) || null,
+    chatgptAccountId: asString(source.chatgptAccountId ?? source.chatgpt_account_id) || null,
     sort: asInteger(source.sort ?? source.priority, 0, 0),
     status,
     isAvailable: availability.level === "ok",
@@ -540,6 +542,7 @@ export function normalizeStartupSnapshot(payload: unknown): StartupSnapshot {
     apiKeys: normalizeApiKeyList(source.apiKeys),
     apiModelOptions: normalizeModelOptions(source.apiModelOptions),
     manualPreferredAccountId: asString(source.manualPreferredAccountId),
+    currentAuthAccountId: asString(source.currentAuthAccountId),
     requestLogTodaySummary: normalizeTodaySummary(source.requestLogTodaySummary),
     requestLogs: normalizeRequestLogs(source.requestLogs),
   };

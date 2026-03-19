@@ -67,14 +67,15 @@ export function useDashboardStats() {
     isServiceReady &&
     accounts.length > 0 &&
     !hasStartupSignal &&
-    snapshotQuery.isFetching;
+      snapshotQuery.isFetching;
   const totalAccounts = accounts.length;
-  const availableAccounts = accounts.filter((item) => item.isAvailable).length;
-  const unavailableAccounts = totalAccounts - availableAccounts;
+  const availableAccounts = accounts.filter((item) => item.availabilityLevel === "ok").length;
+  const unavailableAccounts = accounts.filter((item) => item.availabilityLevel === "bad").length;
   const currentAccount = pickCurrentAccount(
     accounts,
     data?.requestLogs || [],
-    data?.manualPreferredAccountId
+    data?.manualPreferredAccountId,
+    data?.currentAuthAccountId
   );
   const recommendations = pickBestRecommendations(accounts);
 

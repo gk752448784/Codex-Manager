@@ -6,6 +6,7 @@ import {
   Users, 
   Key, 
   FileText, 
+  Search,
   Settings, 
   ChevronLeft, 
   ChevronRight
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { name: "账号管理", href: "/accounts/", icon: Users },
   { name: "平台密钥", href: "/apikeys/", icon: Key },
   { name: "请求日志", href: "/logs/", icon: FileText },
+  { name: "本地 Codex", href: "/codex/", icon: Search },
   { name: "设置", href: "/settings/", icon: Settings },
 ];
 const DESKTOP_NAVIGATION_FALLBACK_MS = 500;

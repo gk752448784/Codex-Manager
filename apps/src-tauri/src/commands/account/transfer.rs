@@ -55,7 +55,9 @@ pub async fn service_account_import_by_directory(
 }
 
 #[tauri::command]
-pub async fn service_account_import_by_file(_addr: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn service_account_import_by_file(
+    _addr: Option<String>,
+) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let selected_files = FileDialog::new()
             .set_title("选择账号导入文件")

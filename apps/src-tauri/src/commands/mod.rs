@@ -1,5 +1,6 @@
 pub mod account;
 pub mod apikey;
+pub mod local_codex;
 pub mod login;
 mod registry;
 pub mod requestlog;

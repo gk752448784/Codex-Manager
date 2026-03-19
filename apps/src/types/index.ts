@@ -27,6 +27,8 @@ export interface Account {
   priority: number;
   label: string;
   groupName: string;
+  workspaceId: string | null;
+  chatgptAccountId: string | null;
   sort: number;
   status: string;
   isAvailable: boolean;
@@ -248,6 +250,44 @@ export interface ServiceInitializationResult {
   userAgent: string;
 }
 
+export interface LocalCodexProject {
+  path: string;
+  trustLevel: string;
+  isCurrent: boolean;
+}
+
+export interface LocalCodexWorkspaceAccount {
+  accountId: string;
+  label: string;
+  groupName: string | null;
+  status: string;
+  workspaceId: string | null;
+  chatgptAccountId: string | null;
+  isCurrent: boolean;
+}
+
+export interface LocalCodexStatus {
+  codexDir: string;
+  authFileExists: boolean;
+  configFileExists: boolean;
+  currentAuthMode: string;
+  currentWorkspaceId: string | null;
+  currentChatgptAccountId: string | null;
+  currentAccountHint: string | null;
+  matchedAccountId: string | null;
+  currentProjectPath: string | null;
+  projects: LocalCodexProject[];
+  workspaceAccounts: LocalCodexWorkspaceAccount[];
+}
+
+export interface LocalCodexImportResult {
+  authFileExists: boolean;
+  total: number;
+  created: number;
+  updated: number;
+  failed: number;
+}
+
 export interface StartupSnapshot {
   accounts: Account[];
   usageSnapshots: AccountUsage[];
@@ -255,6 +295,7 @@ export interface StartupSnapshot {
   apiKeys: ApiKey[];
   apiModelOptions: ModelOption[];
   manualPreferredAccountId: string;
+  currentAuthAccountId: string;
   requestLogTodaySummary: RequestLogTodaySummary;
   requestLogs: RequestLog[];
 }

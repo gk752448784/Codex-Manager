@@ -306,9 +306,18 @@ export function canParticipateInRouting(level: AvailabilityLevel): boolean {
 export function pickCurrentAccount(
   accounts: Account[],
   requestLogs: RequestLog[],
-  manualPreferredAccountId?: string
+  manualPreferredAccountId?: string,
+  currentAuthAccountId?: string
 ): Account | null {
   if (!accounts.length) return null;
+
+  const currentAuthId = String(currentAuthAccountId || "").trim();
+  if (currentAuthId) {
+    const currentAuth = accounts.find((item) => item.id === currentAuthId);
+    if (currentAuth) {
+      return currentAuth;
+    }
+  }
 
   const preferredId = String(manualPreferredAccountId || "").trim();
   if (preferredId) {

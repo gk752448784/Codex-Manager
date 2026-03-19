@@ -8,6 +8,36 @@ use codexmanager_core::storage::{now_ts, Event, LoginSession};
 use crate::auth_callback::{ensure_login_server, resolve_redirect_uri};
 use crate::storage_helpers::open_storage;
 
+fn normalize_workspace_id(workspace_id: Option<&str>) -> Option<String> {
+    workspace_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn validate_workspace_id(workspace_id: Option<&str>) -> Result<Option<String>, String> {
+    let normalized = normalize_workspace_id(workspace_id);
+    let Some(value) = normalized.as_deref() else {
+        return Ok(None);
+    };
+
+    if !value.starts_with("org-") {
+        return Err(
+            "Business / 工作空间 ID 必须使用真实的 org-... 标识。".to_string(),
+        );
+    }
+
+    let suffix = value.trim_start_matches("org-");
+    if suffix.len() < 6 || suffix.chars().all(|ch| ch.is_ascii_digit()) {
+        return Err(
+            "请输入真实的 Business / 工作空间 ID，不要使用 org-1 这类占位值。"
+                .to_string(),
+        );
+    }
+
+    Ok(Some(value.to_string()))
+}
+
 pub(crate) fn login_start(
     login_type: &str,
     open_browser: bool,
@@ -31,6 +61,8 @@ pub(crate) fn login_start(
     } else {
         resolve_redirect_uri().unwrap_or_else(|| "http://localhost:1455/auth/callback".to_string())
     };
+
+    let workspace_id = validate_workspace_id(workspace_id.as_deref())?;
 
     // 生成 PKCE 与状态
     let pkce = generate_pkce();

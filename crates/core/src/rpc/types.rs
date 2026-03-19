@@ -331,6 +331,7 @@ pub struct StartupSnapshotResult {
     pub api_keys: Vec<ApiKeySummary>,
     pub api_model_options: Vec<ModelOption>,
     pub manual_preferred_account_id: Option<String>,
+    pub current_auth_account_id: Option<String>,
     pub request_log_today_summary: RequestLogTodaySummaryResult,
     pub request_logs: Vec<RequestLogSummary>,
 }

@@ -19,11 +19,10 @@ CodexManager 由两类运行模式组成：
 
 ```text
 .
-├─ apps/                  # 前端与 Tauri 桌面端
-│  ├─ src/                # Vite + 原生 JavaScript 前端
+├─ apps/                  # Next.js + Tauri 桌面端
+│  ├─ src/                # App Router 前端、页面、hooks、API wrapper
 │  ├─ src-tauri/          # Tauri 桌面壳与原生命令桥接
-│  ├─ tests/              # 前端 UI/结构测试
-│  └─ dist/               # 前端构建产物
+│  └─ out/                # Next 静态导出 / Tauri 构建产物
 ├─ crates/
 │  ├─ core/               # 数据库迁移、存储基础、认证/用量底层能力
 │  ├─ service/            # 本地 HTTP/RPC 服务、网关、协议适配、设置持久化
@@ -39,15 +38,20 @@ CodexManager 由两类运行模式组成：
 
 ### 3.1 前端总控入口
 
-- `apps/src/main.js`：前端启动装配入口
-- `apps/src/runtime/app-bootstrap.js`：界面初始化编排
-- `apps/src/runtime/app-runtime.js`：刷新流程与运行期协同
-- `apps/src/settings/controller.js`：设置域门面，继续向子模块分发
+- `apps/src/app/layout.tsx`：App Router 根布局
+- `apps/src/app/page.tsx`：仪表盘首页
+- `apps/src/app/accounts/page.tsx`：账号管理页
+- `apps/src/app/apikeys/page.tsx`：平台 Key 管理页
+- `apps/src/app/logs/page.tsx`：请求日志页
+- `apps/src/app/codex/page.tsx`：本地 Codex 工作台
+- `apps/src/app/settings/page.tsx`：系统设置页
+- `apps/src/components/layout/app-bootstrap.tsx`：前端初始化编排
 
 ### 3.2 桌面端壳层入口
 
 - `apps/src-tauri/src/lib.rs`：Tauri 应用装配入口
-- `apps/src-tauri/src/settings_commands.rs`：桌面端设置桥接命令
+- `apps/src-tauri/src/commands/registry.rs`：桌面端命令注册入口
+- `apps/src-tauri/src/commands/local_codex.rs`：本地 Codex 登录态扫描 / 导入 / 切换
 - `apps/src-tauri/src/service_runtime.rs`：桌面内嵌 service 生命周期
 - `apps/src-tauri/src/rpc_client.rs`：桌面端 RPC 调用基础设施
 
@@ -110,7 +114,7 @@ Service 模式由以下二进制组成：
 - 用户交互
 - 状态管理
 - 调用本地 API / Tauri command
-- 设置页与账号页的前端逻辑
+- 账号页、平台 Key、请求日志、本地 Codex 工作台、设置页的前端逻辑
 
 ### 5.2 `apps/src-tauri/`
 
@@ -120,6 +124,7 @@ Service 模式由以下二进制组成：
 - 单实例控制
 - 系统托盘与窗口事件
 - 桌面更新与安装器行为
+- 读取和改写本机 `~/.codex` 登录态
 - 将前端操作桥接到 service / 本地运行时
 
 ### 5.3 `crates/core/`
@@ -210,6 +215,11 @@ Service 模式由以下二进制组成：
    - `tool_calls` / tools 映射与聚合
 5. 结果回写请求日志和统计信息，再返回给调用方。
 
+补充说明：
+
+- “请求日志”只记录经过 CodexManager 网关转发的请求。
+- 本机 Codex 登录态扫描、workspace 切换、账号导入和额度刷新，不属于请求日志统计范围。
+
 ## 8. 构建与发布链路
 
 ### 8.1 本地开发构建
@@ -218,7 +228,7 @@ Service 模式由以下二进制组成：
 
 - `pnpm -C apps run dev`
 - `pnpm -C apps run build`
-- `pnpm -C apps run check`
+- `pnpm -C apps exec tsc --noEmit`
 
 Rust：
 
@@ -229,6 +239,7 @@ Rust：
 
 桌面端：
 
+- `pnpm -C apps run tauri:build:windows`（仅 Windows 主机）
 - `scripts/rebuild.ps1`
 - `scripts/rebuild-linux.sh`
 - `scripts/rebuild-macos.sh`

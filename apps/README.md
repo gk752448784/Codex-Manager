@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Frontend Desktop App
 
-## Getting Started
+This directory contains the Next.js frontend used by the Tauri desktop shell.
 
-First, run the development server:
+## Development
+
+Install dependencies and start the desktop frontend dev server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm run dev:desktop
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tauri dev mode:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm run tauri:dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Static Export Validation
 
-## Learn More
+The desktop build depends on the exported static site in `apps/out`:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm run build:desktop
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Linux Mint Packaging
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Linux Mint is supported through Tauri's Linux bundle targets. Before packaging on Mint 21.x / Ubuntu 22.04 based systems, install the required native dependencies:
 
-## Deploy on Vercel
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  libwebkit2gtk-4.1-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  libsoup-3.0-dev \
+  patchelf \
+  zip
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Build both Linux desktop packages:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm run tauri:build:linux
+```
+
+Build only one format:
+
+```bash
+pnpm run tauri:build:linux:appimage
+pnpm run tauri:build:linux:deb
+```
+
+Output paths:
+
+- `apps/src-tauri/target/release/bundle/appimage/*.AppImage`
+- `apps/src-tauri/target/release/bundle/deb/*.deb`
+
+For scripted local packaging, `scripts/rebuild-linux.sh --bundles "appimage,deb" --clean-dist` remains available at the repository root.

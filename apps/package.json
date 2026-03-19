@@ -8,6 +8,12 @@
     "dev:desktop": "next dev --webpack -p 3005",
     "build": "next build",
     "build:desktop": "next build",
+    "tauri:dev": "corepack pnpm dlx @tauri-apps/cli@2.10.1 dev",
+    "tauri:build": "corepack pnpm dlx @tauri-apps/cli@2.10.1 build",
+    "tauri:build:windows": "node -e \"if(process.platform!=='win32'){console.error('tauri:build:windows 需要在 Windows 主机上执行，或使用 GitHub Actions 的 windows-latest runner。当前平台: '+process.platform);process.exit(1)}\" && corepack pnpm dlx @tauri-apps/cli@2.10.1 build --bundles nsis",
+    "tauri:build:linux": "corepack pnpm dlx @tauri-apps/cli@2.10.1 build --bundles appimage,deb",
+    "tauri:build:linux:appimage": "corepack pnpm dlx @tauri-apps/cli@2.10.1 build --bundles appimage",
+    "tauri:build:linux:deb": "corepack pnpm dlx @tauri-apps/cli@2.10.1 build --bundles deb",
     "start": "next start",
     "lint": "eslint"
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { 
   Dialog, 
   DialogContent, 
@@ -26,8 +26,10 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { accountClient } from "@/lib/api/account-client";
+import { appClient } from "@/lib/api/app-client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { isTauriRuntime } from "@/lib/api/transport";
 import { FileUp, Info, LogIn, Clipboard, ExternalLink, Hash } from "lucide-react";
 
 interface AddAccountModalProps {
@@ -39,6 +41,46 @@ const GROUP_LABELS: Record<string, string> = {
   TEAM: "团队 (TEAM)",
   PERSONAL: "个人 (PERSONAL)",
 };
+
+function normalizeWorkspaceId(value: string): string {
+  return String(value || "").trim();
+}
+
+function isLikelyPlaceholderWorkspaceId(value: string): boolean {
+  const normalized = normalizeWorkspaceId(value);
+  if (!normalized) return false;
+  if (!normalized.startsWith("org-")) return true;
+  const suffix = normalized.slice(4);
+  if (suffix.length < 6) return true;
+  if (/^\d+$/.test(suffix)) return true;
+  return false;
+}
+
+function workspaceIdValidationMessage(value: string): string | null {
+  const normalized = normalizeWorkspaceId(value);
+  if (!normalized) return null;
+  if (!normalized.startsWith("org-")) {
+    return "Business / 工作空间 ID 需要使用真实的 org-... 标识。";
+  }
+  if (normalized.length <= 8 || /^\d+$/.test(normalized.slice(4))) {
+    return "请输入真实的 Business / 工作空间 ID，不要使用 org-1 这类占位值。";
+  }
+  return null;
+}
+
+function workspaceOptionTitle(input: {
+  workspaceId?: string | null;
+  label?: string | null;
+  groupName?: string | null;
+}): string {
+  const groupName = String(input.groupName || "").trim();
+  if (groupName && groupName.toUpperCase() !== "IMPORT") {
+    return groupName;
+  }
+  const label = String(input.label || "").trim();
+  if (label) return label;
+  return normalizeWorkspaceId(input.workspaceId || "");
+}
 
 function pickImportTokenField(record: unknown, keys: string[]): string {
   const source = record && typeof record === "object" && !Array.isArray(record)
@@ -136,6 +178,7 @@ function getBulkImportErrorMessage(error: unknown): string {
 }
 
 export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
+  const isDesktop = isTauriRuntime();
   const [activeTab, setActiveTab] = useState("login");
   const [isLoading, setIsLoading] = useState(false);
   const [isPollingLogin, setIsPollingLogin] = useState(false);
@@ -147,11 +190,58 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   const [tags, setTags] = useState("");
   const [note, setNote] = useState("");
   const [group, setGroup] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
   const [loginUrl, setLoginUrl] = useState("");
   const [manualCallback, setManualCallback] = useState("");
 
   // Bulk Import
   const [bulkContent, setBulkContent] = useState("");
+
+  const accountsQuery = useQuery({
+    queryKey: ["accounts", "list", "login-modal-workspaces"],
+    queryFn: () => accountClient.list(),
+    enabled: open,
+    retry: 1,
+  });
+
+  const localCodexStatusQuery = useQuery({
+    queryKey: ["local-codex-status", "login-modal-workspaces"],
+    queryFn: () => appClient.getLocalCodexStatus(),
+    enabled: open && isDesktop,
+    retry: 1,
+  });
+
+  const knownWorkspaceOptions = useMemo(() => {
+    const options = new Map<string, { workspaceId: string; title: string; subtitle: string }>();
+    for (const account of accountsQuery.data?.items || []) {
+      const workspace = normalizeWorkspaceId(account.workspaceId || "");
+      const title = workspaceOptionTitle({
+        workspaceId: workspace,
+        label: account.label,
+        groupName: account.groupName,
+      });
+      if (workspace) {
+        options.set(workspace, {
+          workspaceId: workspace,
+          title,
+          subtitle: account.label || account.name || "",
+        });
+      }
+    }
+    for (const account of localCodexStatusQuery.data?.workspaceAccounts || []) {
+      const workspace = normalizeWorkspaceId(account.workspaceId || "");
+      if (!workspace) continue;
+      if (options.has(workspace)) continue;
+      options.set(workspace, {
+        workspaceId: workspace,
+        title: workspaceOptionTitle(account),
+        subtitle: account.label || "",
+      });
+    }
+    return Array.from(options.values()).sort((left, right) =>
+      left.title.localeCompare(right.title, "zh-Hans-CN")
+    );
+  }, [accountsQuery.data?.items, localCodexStatusQuery.data?.workspaceAccounts]);
 
   const resetModalState = useCallback(() => {
     loginPollTokenRef.current += 1;
@@ -162,6 +252,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
     setTags("");
     setNote("");
     setGroup("");
+    setWorkspaceId("");
     setLoginUrl("");
     setManualCallback("");
     setBulkContent("");
@@ -231,6 +322,13 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   };
 
   const handleStartLogin = async () => {
+    const normalizedWorkspaceId = normalizeWorkspaceId(workspaceId);
+    const validationMessage = workspaceIdValidationMessage(normalizedWorkspaceId);
+    if (validationMessage) {
+      toast.error(validationMessage);
+      setLoginHint(validationMessage);
+      return;
+    }
     setIsLoading(true);
     setLoginHint("");
     try {
@@ -238,6 +336,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
         tags: tags.split(",").map(t => t.trim()).filter(Boolean),
         note,
         group: group || null,
+        workspaceId: normalizedWorkspaceId || null,
       });
       setLoginUrl(result.authUrl);
       if (result.warning) {
@@ -363,6 +462,46 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
               <div className="space-y-2">
                 <Label>备注/描述</Label>
                 <Input placeholder="例如：主号 / 测试号" value={note} onChange={e => setNote(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Business / 工作空间 ID</Label>
+                {knownWorkspaceOptions.length ? (
+                  <Select
+                    value={workspaceId}
+                    onValueChange={(value) => setWorkspaceId(value || "")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择已知 Business，或继续手动输入">
+                        {(value) => {
+                          const normalized = normalizeWorkspaceId(String(value || ""));
+                          if (!normalized) return "选择已知 Business，或继续手动输入";
+                          const option = knownWorkspaceOptions.find((item) => item.workspaceId === normalized);
+                          return option ? `${option.title} (${option.workspaceId})` : normalized;
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {knownWorkspaceOptions.map((option) => (
+                        <SelectItem key={option.workspaceId} value={option.workspaceId}>
+                          {option.title} ({option.workspaceId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                <Input
+                  placeholder="例如：org-xxxxxxxx；每个 business 登录一次，后续即可一键切换"
+                  value={workspaceId}
+                  onChange={e => setWorkspaceId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  本地 Codex 不会自动记住你历史登录过的所有 business。这里指定 workspace id 登录后，应用会把该 business 单独保存下来。
+                </p>
+                {isLikelyPlaceholderWorkspaceId(workspaceId) ? (
+                  <p className="text-xs text-destructive">
+                    当前输入看起来像占位值。请使用真实的 `org-...` business id，否则上游授权页可能一直验证失败。
+                  </p>
+                ) : null}
               </div>
 
               <div className="pt-2">

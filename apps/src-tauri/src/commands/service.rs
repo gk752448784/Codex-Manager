@@ -34,18 +34,21 @@ pub async fn service_start(app: tauri::AppHandle, addr: String) -> Result<(), St
         std::env::set_var("CODEXMANAGER_SERVICE_ADDR", &bind_addr);
         stop_service();
         spawn_service_with_addr(&app, &bind_addr, &connect_addr)?;
-        wait_for_service_ready(&connect_addr, SERVICE_READY_RETRIES, SERVICE_READY_RETRY_DELAY).map_err(
-            |err| {
-                log::error!(
-                    "service health check failed at {} (bind {}): {}",
-                    connect_addr,
-                    bind_addr,
-                    err
-                );
-                stop_service();
-                format!("service not ready at {connect_addr}: {err}")
-            },
+        wait_for_service_ready(
+            &connect_addr,
+            SERVICE_READY_RETRIES,
+            SERVICE_READY_RETRY_DELAY,
         )
+        .map_err(|err| {
+            log::error!(
+                "service health check failed at {} (bind {}): {}",
+                connect_addr,
+                bind_addr,
+                err
+            );
+            stop_service();
+            format!("service not ready at {connect_addr}: {err}")
+        })
     })
     .await
     .map_err(|err| format!("service_start task failed: {err}"))?
