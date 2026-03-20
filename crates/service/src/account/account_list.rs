@@ -2,6 +2,7 @@ use codexmanager_core::{
     rpc::types::{AccountListParams, AccountListResult, AccountSummary},
     storage::Account,
 };
+use std::collections::HashMap;
 
 use crate::storage_helpers::open_storage;
 
@@ -43,8 +44,9 @@ pub(crate) fn read_accounts(
                     page_size,
                 )
                 .map_err(|err| format!("list accounts failed: {err}"))?;
+            let items = to_account_summaries(&storage, accounts)?;
             return Ok(AccountListResult {
-                items: accounts.into_iter().map(to_account_summary).collect(),
+                items,
                 total,
                 page,
                 page_size,
@@ -55,8 +57,9 @@ pub(crate) fn read_accounts(
             .list_accounts_filtered(query.as_deref(), group_filter.as_deref())
             .map_err(|err| format!("list accounts failed: {err}"))?;
         let total = accounts.len() as i64;
+        let items = to_account_summaries(&storage, accounts)?;
         return Ok(AccountListResult {
-            items: accounts.into_iter().map(to_account_summary).collect(),
+            items,
             total,
             page: 1,
             page_size: if total > 0 {
@@ -80,8 +83,9 @@ pub(crate) fn read_accounts(
             group_filter.as_deref(),
             Some((offset, page_size)),
         )?;
+        let items = to_account_summaries(&storage, paged)?;
         return Ok(AccountListResult {
-            items: paged.into_iter().map(to_account_summary).collect(),
+            items,
             total,
             page,
             page_size,
@@ -96,9 +100,10 @@ pub(crate) fn read_accounts(
         None,
     )?;
     let total = accounts.len() as i64;
+    let items = to_account_summaries(&storage, accounts)?;
 
     Ok(AccountListResult {
-        items: accounts.into_iter().map(to_account_summary).collect(),
+        items,
         total,
         page: 1,
         page_size: if total > 0 {
@@ -188,12 +193,38 @@ fn filtered_accounts(
     }
 }
 
-fn to_account_summary(acc: Account) -> AccountSummary {
+fn to_account_summary_with_reason(acc: Account, status_reason: Option<String>) -> AccountSummary {
     AccountSummary {
         id: acc.id,
         label: acc.label,
         group_name: acc.group_name,
         sort: acc.sort,
         status: acc.status,
+        status_reason,
     }
+}
+
+fn to_account_summaries(
+    storage: &codexmanager_core::storage::Storage,
+    accounts: Vec<Account>,
+) -> Result<Vec<AccountSummary>, String> {
+    let account_ids = accounts
+        .iter()
+        .map(|account| account.id.clone())
+        .collect::<Vec<_>>();
+    let status_reasons = storage
+        .latest_account_status_reasons(&account_ids)
+        .map_err(|err| format!("load account status reasons failed: {err}"))?;
+    Ok(accounts
+        .into_iter()
+        .map(|account| map_account_summary(account, &status_reasons))
+        .collect())
+}
+
+fn map_account_summary(
+    account: Account,
+    status_reasons: &HashMap<String, String>,
+) -> AccountSummary {
+    let status_reason = status_reasons.get(&account.id).cloned();
+    to_account_summary_with_reason(account, status_reason)
 }

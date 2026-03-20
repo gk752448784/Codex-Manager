@@ -5,6 +5,23 @@
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-03-20
+
+### Added
+- 账号管理新增封禁识别、封禁筛选与“一键清理封禁账号”入口；`account_deactivated` 与 `workspace_deactivated` 会被自动识别为不可用信号，并可在列表中直接筛选和清理。
+- 账号列表的 5 小时 / 7 天额度列现在会展示各自窗口的重置时间；仅返回 7 天窗口的 free 账号也会把重置时间显示到 7 天列。
+- 平台密钥新增服务等级配置：`跟随请求`、`Fast`、`Flex`，其中 `Fast` 会映射为上游 `priority`，`Flex` 会直传为 `flex`。
+
+### Fixed
+- 修复桌面端平台密钥创建 / 编辑时 `serviceTier` 未透传导致“服务等级”保存后不生效、不回显的问题。
+- 修复 Web 端在非首页刷新时偶发下载错误文件的问题，并修复部分运行环境下复制 API Key / 登录链接时 `navigator.clipboard.writeText` 不可用导致的复制失败。
+- 修复设置页“检查更新”按钮在自动静默检查更新时持续错误转圈的问题；现在只有手动点击时才显示加载状态。
+
+### Changed
+- 网关主链路继续向 Codex-first 收口：会话绑定、自动切号即切线程、`originator` / `User-Agent` / 请求压缩等出站语义已进一步对齐，并移除了旧兼容路径遗留的 upstream cookie 链路。
+- 设置页补回服务监听地址切换，可在 `localhost` 与 `0.0.0.0` 之间切换；README 与文档也已同步收口到当前主线路径。
+- 发布版本提升到 `0.1.11`，同步更新 workspace、前端包、Tauri 桌面端、版本一致性校验脚本与 README 最新版本说明。
+
 ## [0.1.10] - 2026-03-18
 
 ### Fixed
@@ -109,7 +126,8 @@
 ### Changed
 - 账号管理页操作区整合为单一“账号操作”下拉菜单，替代右侧多按钮堆叠，界面更简洁。
 
-[Unreleased]: https://github.com/qxcnm/Codex-Manager/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/qxcnm/Codex-Manager/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.11
 [0.1.10]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.10
 [0.1.9]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.9
 [0.1.8]: https://github.com/qxcnm/Codex-Manager/releases/tag/v0.1.8

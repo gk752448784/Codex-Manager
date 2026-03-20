@@ -30,22 +30,6 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
             crate::gateway::clear_manual_preferred_account();
             super::ok_result()
         }
-        "gateway/headerPolicy/get" => super::as_json(serde_json::json!({
-            "cpaNoCookieHeaderModeEnabled": crate::gateway::cpa_no_cookie_header_mode_enabled(),
-            "envKey": "CODEXMANAGER_CPA_NO_COOKIE_HEADER_MODE",
-        })),
-        "gateway/headerPolicy/set" => {
-            let enabled = super::bool_param(req, "cpaNoCookieHeaderModeEnabled")
-                .or_else(|| super::bool_param(req, "enabled"))
-                .unwrap_or(false);
-            super::value_or_error(crate::set_gateway_cpa_no_cookie_header_mode(enabled).map(
-                |applied| {
-                    serde_json::json!({
-                        "cpaNoCookieHeaderModeEnabled": applied,
-                    })
-                },
-            ))
-        }
         "gateway/backgroundTasks/get" => {
             super::as_json(crate::usage_refresh::background_tasks_settings())
         }

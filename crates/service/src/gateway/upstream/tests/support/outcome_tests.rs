@@ -98,3 +98,35 @@ fn challenge_on_last_candidate_keeps_upstream_response() {
     );
     assert!(matches!(decision, UpstreamOutcomeDecision::RespondUpstream));
 }
+
+#[test]
+fn status_500_with_more_candidates_triggers_failover() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let decision = decide_upstream_outcome(
+        &storage,
+        "acc-500",
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        None,
+        "https://chatgpt.com/backend-api/codex/responses",
+        true,
+        |_, _, _| {},
+    );
+    assert!(matches!(decision, UpstreamOutcomeDecision::Failover));
+}
+
+#[test]
+fn status_500_on_last_candidate_keeps_upstream_response() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let decision = decide_upstream_outcome(
+        &storage,
+        "acc-500",
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        None,
+        "https://chatgpt.com/backend-api/codex/responses",
+        false,
+        |_, _, _| {},
+    );
+    assert!(matches!(decision, UpstreamOutcomeDecision::RespondUpstream));
+}

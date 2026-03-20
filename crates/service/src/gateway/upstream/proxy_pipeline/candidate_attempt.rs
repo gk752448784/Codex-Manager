@@ -75,7 +75,6 @@ pub(in super::super) fn run_candidate_attempt(
         setup.upstream_fallback_base.as_deref(),
         account,
         token,
-        setup.upstream_cookie.as_deref(),
         strip_session_affinity,
         debug,
         allow_openai_fallback,

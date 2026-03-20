@@ -16,6 +16,7 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
             let name = super::string_param(req, "name");
             let model_slug = super::string_param(req, "modelSlug");
             let reasoning_effort = super::string_param(req, "reasoningEffort");
+            let service_tier = super::string_param(req, "serviceTier");
             let protocol_type = super::string_param(req, "protocolType");
             let upstream_base_url = super::string_param(req, "upstreamBaseUrl");
             let static_headers_json = super::string_param(req, "staticHeadersJson");
@@ -23,6 +24,7 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                 name,
                 model_slug,
                 reasoning_effort,
+                service_tier,
                 protocol_type,
                 upstream_base_url,
                 static_headers_json,
@@ -44,6 +46,7 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
             let key_id = super::str_param(req, "id").unwrap_or("");
             let model_slug = super::string_param(req, "modelSlug");
             let reasoning_effort = super::string_param(req, "reasoningEffort");
+            let service_tier = super::string_param(req, "serviceTier");
             let protocol_type = super::string_param(req, "protocolType");
             let upstream_base_url = super::string_param(req, "upstreamBaseUrl");
             let static_headers_json = super::string_param(req, "staticHeadersJson");
@@ -51,6 +54,7 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                 key_id,
                 model_slug,
                 reasoning_effort,
+                service_tier,
                 protocol_type,
                 upstream_base_url,
                 static_headers_json,

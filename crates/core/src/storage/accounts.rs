@@ -192,6 +192,10 @@ impl Storage {
             [account_id],
         )?;
         tx.execute("DELETE FROM events WHERE account_id = ?1", [account_id])?;
+        tx.execute(
+            "DELETE FROM conversation_bindings WHERE account_id = ?1",
+            [account_id],
+        )?;
         tx.execute("DELETE FROM accounts WHERE id = ?1", [account_id])?;
         tx.commit()?;
         Ok(())

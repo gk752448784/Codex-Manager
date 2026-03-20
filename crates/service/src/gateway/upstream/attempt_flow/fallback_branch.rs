@@ -205,7 +205,6 @@ pub(super) fn handle_openai_fallback_branch<F>(
     fallback_base: Option<&str>,
     account: &Account,
     token: &mut Token,
-    upstream_cookie: Option<&str>,
     strip_session_affinity: bool,
     debug: bool,
     allow_openai_fallback: bool,
@@ -254,7 +253,6 @@ where
         fallback_base,
         account,
         token,
-        upstream_cookie,
         strip_session_affinity,
         debug,
     ) {
@@ -313,8 +311,7 @@ where
             } else {
                 FallbackBranchResult::Terminal {
                     status_code: 502,
-                    message: "upstream blocked by Cloudflare; set CODEXMANAGER_UPSTREAM_COOKIE"
-                        .to_string(),
+                    message: "upstream blocked by Cloudflare".to_string(),
                 }
             }
         }

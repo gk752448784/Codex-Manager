@@ -115,6 +115,19 @@ pub(in super::super) fn execute_candidate_sequence(
 
         let strip_session_affinity =
             state.strip_session_affinity(&account, idx, setup.anthropic_has_prompt_cache_key);
+        let attempt_thread = super::super::super::conversation_binding::resolve_attempt_thread(
+            setup.conversation_routing.as_ref(),
+            &account,
+        );
+        let attempt_headers = attempt_thread
+            .as_ref()
+            .map(|thread| {
+                incoming_headers.with_thread_affinity_override(
+                    Some(thread.thread_anchor.as_str()),
+                    thread.reset_session_affinity,
+                )
+            })
+            .unwrap_or_else(|| incoming_headers.clone());
         let attempt_model_override = free_account_model_override(storage, &account, &token);
         let attempt_model_for_log = attempt_model_override.as_deref().or(model_for_log);
         let body_for_attempt = state.body_for_attempt(
@@ -123,6 +136,9 @@ pub(in super::super) fn execute_candidate_sequence(
             strip_session_affinity,
             setup,
             attempt_model_override.as_deref(),
+            attempt_thread
+                .as_ref()
+                .map(|thread| thread.thread_anchor.as_str()),
         );
         context.log_candidate_start(&account.id, idx, strip_session_affinity);
         if let Some(skip_reason) = context.should_skip_candidate(&account.id, idx) {
@@ -143,9 +159,9 @@ pub(in super::super) fn execute_candidate_sequence(
             .as_ref()
             .ok_or_else(|| "request already consumed".to_string())?;
         let request_ctx = UpstreamRequestContext::from_request(request_ref);
-        let incoming_session_id = incoming_headers.session_id();
-        let incoming_turn_state = incoming_headers.turn_state();
-        let incoming_conversation_id = incoming_headers.conversation_id();
+        let incoming_session_id = attempt_headers.session_id();
+        let incoming_turn_state = attempt_headers.turn_state();
+        let incoming_conversation_id = attempt_headers.conversation_id();
         let prompt_cache_key_for_trace =
             extract_prompt_cache_key_for_trace(body_for_attempt.as_ref());
         super::super::super::trace_log::log_attempt_profile(
@@ -169,7 +185,7 @@ pub(in super::super) fn execute_candidate_sequence(
             storage,
             method,
             request_ctx,
-            incoming_headers,
+            incoming_headers: &attempt_headers,
             body: &body_for_attempt,
             upstream_is_stream,
             path,
@@ -219,13 +235,20 @@ pub(in super::super) fn execute_candidate_sequence(
                     && !strip_session_affinity
                     && (incoming_turn_state.is_some() || setup.has_body_encrypted_content)
                 {
-                    let retry_body =
-                        state.retry_body(path, body, setup, attempt_model_override.as_deref());
+                    let retry_body = state.retry_body(
+                        path,
+                        body,
+                        setup,
+                        attempt_model_override.as_deref(),
+                        attempt_thread
+                            .as_ref()
+                            .map(|thread| thread.thread_anchor.as_str()),
+                    );
                     let retry_decision = run_candidate_attempt(CandidateAttemptParams {
                         storage,
                         method,
                         request_ctx,
-                        incoming_headers,
+                        incoming_headers: &attempt_headers,
                         body: &retry_body,
                         upstream_is_stream,
                         path,
@@ -281,6 +304,20 @@ pub(in super::super) fn execute_candidate_sequence(
                 let guard = inflight_guard
                     .take()
                     .expect("inflight guard should be available before terminal response");
+                if let Err(err) = super::super::super::conversation_binding::record_conversation_binding_terminal_response(
+                    storage,
+                    setup.conversation_routing.as_ref(),
+                    &account,
+                    attempt_model_for_log,
+                    resp.status().as_u16(),
+                ) {
+                    log::warn!(
+                        "event=gateway_conversation_binding_update_failed trace_id={} account_id={} err={}",
+                        trace_id,
+                        account.id,
+                        err
+                    );
+                }
                 finalize_upstream_response(
                     request,
                     resp,

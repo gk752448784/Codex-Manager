@@ -141,7 +141,7 @@ pub(super) fn send_models_request(
         for (name, value) in build_models_request_headers(
             bearer.as_str(),
             crate::gateway::current_codex_user_agent().as_str(),
-            crate::gateway::current_originator().as_str(),
+            crate::gateway::current_wire_originator().as_str(),
             crate::gateway::current_residency_requirement().as_deref(),
             include_account_header,
             account_header_value.as_deref(),

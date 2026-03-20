@@ -79,6 +79,12 @@ function normalizedAccountStatus(account?: { status?: string } | null): string {
   return String(account?.status || "").trim().toLowerCase();
 }
 
+function normalizedAccountStatusReason(
+  account?: { statusReason?: string } | null
+): string {
+  return String(account?.statusReason || "").trim().toLowerCase();
+}
+
 function isDisabledAccount(account?: { status?: string } | null): boolean {
   return normalizedAccountStatus(account) === "disabled";
 }
@@ -89,6 +95,18 @@ function isRecoveryRequiredAccount(account?: { status?: string } | null): boolea
 
 function isUnavailableAccount(account?: { status?: string } | null): boolean {
   return normalizedAccountStatus(account) === "unavailable";
+}
+
+export function isBannedAccount(
+  account?: { status?: string; statusReason?: string } | null
+): boolean {
+  if (normalizedAccountStatus(account) !== "unavailable") {
+    return false;
+  }
+  const reason = normalizedAccountStatusReason(account);
+  return (
+    reason === "account_deactivated" || reason === "workspace_deactivated"
+  );
 }
 
 export function remainingPercent(value: number | null | undefined): number | null {
@@ -213,13 +231,16 @@ export function getUsageDisplayBuckets(usage?: Partial<AccountUsage> | null): {
 
 export function calcAvailability(
   usage?: Partial<AccountUsage> | null,
-  account?: { status?: string } | null
+  account?: { status?: string; statusReason?: string } | null
 ): { text: string; level: AvailabilityLevel } {
   if (isDisabledAccount(account)) {
     return { text: "已禁用", level: "bad" };
   }
   if (isRecoveryRequiredAccount(account)) {
     return { text: "不可用", level: "bad" };
+  }
+  if (isBannedAccount(account)) {
+    return { text: "封禁", level: "bad" };
   }
   if (isUnavailableAccount(account)) {
     return { text: "不可用", level: "bad" };

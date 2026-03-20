@@ -61,7 +61,6 @@ pub(super) fn process_upstream_post_retry_flow<F>(
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
-    upstream_cookie: Option<&str>,
     auth_token: &str,
     account: &Account,
     token: &mut Token,
@@ -79,9 +78,6 @@ where
 {
     let mut current_auth_token = auth_token.to_string();
     let mut status = upstream.status();
-    // 中文注释：CPA 无 cookie 兼容模式下尽量保持“单跳上游”语义，避免多次 retry 反而触发 challenge。
-    let compact_no_cookie_mode =
-        super::super::super::cpa_no_cookie_header_mode_enabled() && upstream_cookie.is_none();
     if !status.is_success() {
         log::warn!(
             "gateway upstream non-success: status={}, account_id={}",
@@ -90,125 +86,89 @@ where
         );
     }
 
-    if !compact_no_cookie_mode {
-        if status.as_u16() == 401 {
-            match try_refresh_chatgpt_access_token(storage, upstream_base, account, token) {
-                Ok(Some(refreshed_auth_token)) => {
-                    current_auth_token = refreshed_auth_token;
-                    if debug {
+    if status.as_u16() == 401 {
+        match try_refresh_chatgpt_access_token(storage, upstream_base, account, token) {
+            Ok(Some(refreshed_auth_token)) => {
+                current_auth_token = refreshed_auth_token;
+                if debug {
+                    log::warn!(
+                        "event=gateway_upstream_unauthorized_refresh_retry path={} account_id={}",
+                        path,
+                        account.id
+                    );
+                }
+                match super::transport::send_upstream_request(
+                    client,
+                    method,
+                    url,
+                    request_deadline,
+                    request_ctx,
+                    incoming_headers,
+                    body,
+                    is_stream,
+                    current_auth_token.as_str(),
+                    account,
+                    strip_session_affinity,
+                ) {
+                    Ok(resp) => {
+                        upstream = resp;
+                        status = upstream.status();
+                    }
+                    Err(err) => {
                         log::warn!(
-                            "event=gateway_upstream_unauthorized_refresh_retry path={} account_id={}",
+                            "event=gateway_upstream_unauthorized_refresh_retry_error path={} status=502 account_id={} err={}",
                             path,
-                            account.id
+                            account.id,
+                            err
                         );
                     }
-                    match super::transport::send_upstream_request(
-                        client,
-                        method,
-                        url,
-                        request_deadline,
-                        request_ctx,
-                        incoming_headers,
-                        body,
-                        is_stream,
-                        upstream_cookie,
-                        current_auth_token.as_str(),
-                        account,
-                        strip_session_affinity,
-                    ) {
-                        Ok(resp) => {
-                            upstream = resp;
-                            status = upstream.status();
-                        }
-                        Err(err) => {
-                            log::warn!(
-                                "event=gateway_upstream_unauthorized_refresh_retry_error path={} status=502 account_id={} err={}",
-                                path,
-                                account.id,
-                                err
-                            );
-                        }
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => {
-                    let refresh_token_invalid =
-                        mark_account_unavailable_for_refresh_token_error(storage, &account.id, &err);
-                    log::warn!(
-                        "event=gateway_upstream_unauthorized_refresh_failed path={} account_id={} err={}",
-                        path,
-                        account.id,
-                        err
-                    );
-                    if refresh_token_invalid && has_more_candidates {
-                        log_gateway_result(Some(url), 401, Some("refresh token invalid failover"));
-                        return PostRetryFlowDecision::Failover;
-                    }
                 }
             }
-        }
-        if let Some(alt_url) = url_alt {
-            match retry_with_alternate_path(
-                client,
-                method,
-                Some(alt_url),
-                request_deadline,
-                request_ctx,
-                incoming_headers,
-                body,
-                is_stream,
-                upstream_cookie,
-                current_auth_token.as_str(),
-                account,
-                strip_session_affinity,
-                status,
-                debug,
-                has_more_candidates,
-                &mut log_gateway_result,
-            ) {
-                AltPathRetryResult::NotTriggered => {}
-                AltPathRetryResult::Upstream(resp) => {
-                    upstream = resp;
-                    status = upstream.status();
-                }
-                AltPathRetryResult::Failover => {
+            Ok(None) => {}
+            Err(err) => {
+                let refresh_token_invalid =
+                    mark_account_unavailable_for_refresh_token_error(storage, &account.id, &err);
+                log::warn!(
+                    "event=gateway_upstream_unauthorized_refresh_failed path={} account_id={} err={}",
+                    path,
+                    account.id,
+                    err
+                );
+                if refresh_token_invalid && has_more_candidates {
+                    log_gateway_result(Some(url), 401, Some("refresh token invalid failover"));
                     return PostRetryFlowDecision::Failover;
                 }
-                AltPathRetryResult::Terminal {
-                    status_code,
-                    message,
-                } => {
-                    return PostRetryFlowDecision::Terminal {
-                        status_code,
-                        message,
-                    };
-                }
             }
         }
-        match retry_stateless_then_optional_alt(
+    }
+
+    if let Some(alt_url) = url_alt {
+        match retry_with_alternate_path(
             client,
             method,
-            url,
-            url_alt,
+            Some(alt_url),
             request_deadline,
             request_ctx,
             incoming_headers,
             body,
             is_stream,
-            upstream_cookie,
             current_auth_token.as_str(),
             account,
             strip_session_affinity,
             status,
             debug,
-            disable_challenge_stateless_retry,
+            has_more_candidates,
+            &mut log_gateway_result,
         ) {
-            StatelessRetryResult::NotTriggered => {}
-            StatelessRetryResult::Upstream(resp) => {
+            AltPathRetryResult::NotTriggered => {}
+            AltPathRetryResult::Upstream(resp) => {
                 upstream = resp;
                 status = upstream.status();
             }
-            StatelessRetryResult::Terminal {
+            AltPathRetryResult::Failover => {
+                return PostRetryFlowDecision::Failover;
+            }
+            AltPathRetryResult::Terminal {
                 status_code,
                 message,
             } => {
@@ -217,6 +177,39 @@ where
                     message,
                 };
             }
+        }
+    }
+
+    match retry_stateless_then_optional_alt(
+        client,
+        method,
+        url,
+        url_alt,
+        request_deadline,
+        request_ctx,
+        incoming_headers,
+        body,
+        is_stream,
+        current_auth_token.as_str(),
+        account,
+        strip_session_affinity,
+        status,
+        debug,
+        disable_challenge_stateless_retry,
+    ) {
+        StatelessRetryResult::NotTriggered => {}
+        StatelessRetryResult::Upstream(resp) => {
+            upstream = resp;
+            status = upstream.status();
+        }
+        StatelessRetryResult::Terminal {
+            status_code,
+            message,
+        } => {
+            return PostRetryFlowDecision::Terminal {
+                status_code,
+                message,
+            };
         }
     }
 
@@ -233,7 +226,6 @@ where
         upstream_fallback_base,
         account,
         token,
-        upstream_cookie,
         strip_session_affinity,
         debug,
         allow_openai_fallback,

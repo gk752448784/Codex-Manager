@@ -4,12 +4,11 @@ use serde::Deserialize;
 
 use super::{
     normalize_optional_text, save_persisted_app_setting, save_persisted_bool_setting,
-    APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY, APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY,
-    APP_SETTING_GATEWAY_FREE_ACCOUNT_MAX_MODEL_KEY, APP_SETTING_GATEWAY_ORIGINATOR_KEY,
-    APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
+    APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY, APP_SETTING_GATEWAY_FREE_ACCOUNT_MAX_MODEL_KEY,
+    APP_SETTING_GATEWAY_ORIGINATOR_KEY, APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
     APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY, APP_SETTING_GATEWAY_ROUTE_STRATEGY_KEY,
     APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY, APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
-    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY,
+    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY, APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
 };
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -85,6 +84,16 @@ pub fn current_gateway_originator() -> String {
     gateway::current_originator()
 }
 
+pub fn set_gateway_user_agent_version(version: &str) -> Result<String, String> {
+    let applied = gateway::set_codex_user_agent_version(version)?;
+    save_persisted_app_setting(APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY, Some(&applied))?;
+    Ok(applied)
+}
+
+pub fn current_gateway_user_agent_version() -> String {
+    gateway::current_codex_user_agent_version()
+}
+
 pub fn set_gateway_residency_requirement(value: Option<&str>) -> Result<Option<String>, String> {
     let normalized = normalize_optional_text(value);
     let applied = gateway::set_residency_requirement(normalized.as_deref())?;
@@ -101,12 +110,6 @@ pub fn current_gateway_residency_requirement() -> Option<String> {
 
 pub fn residency_requirement_options() -> &'static [&'static str] {
     &["", "us"]
-}
-
-pub fn set_gateway_cpa_no_cookie_header_mode(enabled: bool) -> Result<bool, String> {
-    let applied = gateway::set_cpa_no_cookie_header_mode(enabled);
-    save_persisted_bool_setting(APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY, applied)?;
-    Ok(applied)
 }
 
 pub fn set_gateway_upstream_proxy_url(proxy_url: Option<&str>) -> Result<Option<String>, String> {

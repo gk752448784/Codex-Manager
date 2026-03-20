@@ -9,7 +9,6 @@ fn header_runtime_guard() -> MutexGuard<'static, ()> {
 fn header_runtime_scope() -> (MutexGuard<'static, ()>, GatewayHeaderRuntimeRestore) {
     let guard = header_runtime_guard();
     let restore = GatewayHeaderRuntimeRestore::capture();
-    crate::gateway::set_cpa_no_cookie_header_mode(false);
     let _ = crate::set_gateway_originator("codex_cli_rs");
     let _ = crate::set_gateway_residency_requirement(None);
     (guard, restore)
@@ -18,7 +17,6 @@ fn header_runtime_scope() -> (MutexGuard<'static, ()>, GatewayHeaderRuntimeResto
 struct GatewayHeaderRuntimeRestore {
     originator: String,
     residency_requirement: Option<String>,
-    cpa_no_cookie_header_mode: bool,
 }
 
 impl GatewayHeaderRuntimeRestore {
@@ -26,7 +24,6 @@ impl GatewayHeaderRuntimeRestore {
         Self {
             originator: crate::current_gateway_originator(),
             residency_requirement: crate::current_gateway_residency_requirement(),
-            cpa_no_cookie_header_mode: crate::gateway::cpa_no_cookie_header_mode_enabled(),
         }
     }
 }
@@ -35,7 +32,6 @@ impl Drop for GatewayHeaderRuntimeRestore {
     fn drop(&mut self) {
         let _ = crate::set_gateway_originator(&self.originator);
         let _ = crate::set_gateway_residency_requirement(self.residency_requirement.as_deref());
-        let _ = crate::gateway::set_cpa_no_cookie_header_mode(self.cpa_no_cookie_header_mode);
     }
 }
 
@@ -53,7 +49,6 @@ fn codex_header_profile_sets_required_headers_for_stream() {
         auth_token: "token-123",
         account_id: Some("acc-1"),
         include_account_id: true,
-        upstream_cookie: Some("cf_clearance=test"),
         incoming_session_id: None,
         incoming_client_request_id: Some("client-req-1"),
         incoming_subagent: Some("review"),
@@ -107,15 +102,11 @@ fn codex_header_profile_sets_required_headers_for_stream() {
         Some("acc-1")
     );
     assert_eq!(
-        find_header(&headers, "Cookie").as_deref(),
-        Some("cf_clearance=test")
-    );
-    assert_eq!(
         find_header(&headers, "x-codex-turn-state").as_deref(),
         Some("turn-state")
     );
     assert!(find_header(&headers, "Conversation_id").is_none());
-    assert!(find_header(&headers, "session_id").is_some());
+    assert!(find_header(&headers, "session_id").is_none());
 }
 
 #[test]
@@ -125,7 +116,6 @@ fn codex_header_profile_uses_json_accept_for_non_stream() {
         auth_token: "token-456",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: None,
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -155,7 +145,6 @@ fn codex_compact_header_profile_matches_remote_compact_shape() {
         auth_token: "token-compact",
         account_id: Some("acc-compact"),
         include_account_id: true,
-        upstream_cookie: Some("cf_clearance=test"),
         incoming_session_id: Some("session-compact"),
         incoming_subagent: Some("compact"),
         fallback_session_id: Some("fallback-session"),
@@ -206,7 +195,6 @@ fn codex_compact_header_profile_omits_subagent_without_explicit_source() {
         auth_token: "token-compact-default",
         account_id: None,
         include_account_id: false,
-        upstream_cookie: None,
         incoming_session_id: Some("session-compact-default"),
         incoming_subagent: None,
         fallback_session_id: Some("fallback-session"),
@@ -224,7 +212,6 @@ fn codex_compact_header_profile_omits_session_without_thread_anchor() {
         auth_token: "token-compact-no-session",
         account_id: None,
         include_account_id: false,
-        upstream_cookie: None,
         incoming_session_id: None,
         incoming_subagent: None,
         fallback_session_id: None,
@@ -233,60 +220,6 @@ fn codex_compact_header_profile_omits_session_without_thread_anchor() {
     });
 
     assert!(find_header(&headers, "session_id").is_none());
-}
-
-#[test]
-fn codex_header_profile_skips_cookie_when_cpa_no_cookie_mode_enabled() {
-    let (_guard, _restore) = header_runtime_scope();
-    crate::gateway::set_cpa_no_cookie_header_mode(true);
-
-    let headers = build_codex_upstream_headers(CodexUpstreamHeaderInput {
-        auth_token: "token-no-cookie",
-        account_id: Some("acc-1"),
-        include_account_id: true,
-        upstream_cookie: Some("cf_clearance=test"),
-        incoming_session_id: Some("sess-1"),
-        incoming_client_request_id: None,
-        incoming_subagent: None,
-        incoming_beta_features: None,
-        incoming_turn_metadata: None,
-        fallback_session_id: None,
-        incoming_turn_state: None,
-        include_turn_state: true,
-        strip_session_affinity: false,
-        is_stream: true,
-        has_body: true,
-    });
-
-    assert!(find_header(&headers, "Cookie").is_none());
-    assert_eq!(
-        find_header(&headers, "ChatGPT-Account-ID").as_deref(),
-        Some("acc-1")
-    );
-}
-
-#[test]
-fn codex_compact_header_profile_skips_cookie_when_cpa_no_cookie_mode_enabled() {
-    let (_guard, _restore) = header_runtime_scope();
-    crate::gateway::set_cpa_no_cookie_header_mode(true);
-
-    let headers = build_codex_compact_upstream_headers(CodexCompactUpstreamHeaderInput {
-        auth_token: "token-compact-no-cookie",
-        account_id: Some("acc-compact"),
-        include_account_id: true,
-        upstream_cookie: Some("cf_clearance=test"),
-        incoming_session_id: Some("session-compact"),
-        incoming_subagent: None,
-        fallback_session_id: None,
-        strip_session_affinity: false,
-        has_body: true,
-    });
-
-    assert!(find_header(&headers, "Cookie").is_none());
-    assert_eq!(
-        find_header(&headers, "ChatGPT-Account-ID").as_deref(),
-        Some("acc-compact")
-    );
 }
 
 #[test]
@@ -300,7 +233,6 @@ fn codex_header_profile_uses_dynamic_originator_and_residency_requirement() {
         auth_token: "token-dynamic",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: None,
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -316,7 +248,7 @@ fn codex_header_profile_uses_dynamic_originator_and_residency_requirement() {
 
     assert_eq!(
         find_header(&headers, "Originator").as_deref(),
-        Some("codex_cli_rs_e2e")
+        Some("codex_cli_rs")
     );
     assert_eq!(
         find_header(&headers, "x-openai-internal-codex-residency").as_deref(),
@@ -324,7 +256,7 @@ fn codex_header_profile_uses_dynamic_originator_and_residency_requirement() {
     );
     assert!(find_header(&headers, "User-Agent")
         .as_deref()
-        .is_some_and(|value| value.contains("codex_cli_rs_e2e/0.101.0")));
+        .is_some_and(|value| value.contains("codex_cli_rs/0.101.0")));
 }
 
 #[test]
@@ -334,7 +266,6 @@ fn codex_header_profile_regenerates_session_on_failover() {
         auth_token: "token-789",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: Some("sticky-session"),
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -352,6 +283,10 @@ fn codex_header_profile_regenerates_session_on_failover() {
         find_header(&headers, "session_id").as_deref(),
         Some("sticky-session")
     );
+    assert_eq!(
+        find_header(&headers, "session_id").as_deref(),
+        Some("fallback-session")
+    );
     assert!(find_header(&headers, "x-codex-turn-state").is_none());
     assert!(find_header(&headers, "Conversation_id").is_none());
 }
@@ -363,7 +298,6 @@ fn codex_header_profile_uses_fallback_session_when_incoming_missing() {
         auth_token: "token-fallback",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: None,
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -391,7 +325,6 @@ fn codex_header_profile_does_not_forward_conversation_header_even_with_fallback(
         auth_token: "token-fallback-conv",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: None,
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -415,7 +348,6 @@ fn codex_header_profile_skips_account_header_when_disabled() {
         auth_token: "token-no-acc",
         account_id: Some("acc-should-not-send"),
         include_account_id: false,
-        upstream_cookie: None,
         incoming_session_id: None,
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -436,10 +368,9 @@ fn codex_header_profile_skips_account_header_when_disabled() {
 fn codex_header_profile_can_disable_affinity_headers() {
     let (_guard, _restore) = header_runtime_scope();
     let headers = build_codex_upstream_headers(CodexUpstreamHeaderInput {
-        auth_token: "token-cpa-mode",
+        auth_token: "token-no-affinity",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: Some("sticky-session"),
         incoming_client_request_id: None,
         incoming_subagent: None,
@@ -470,7 +401,6 @@ fn codex_header_profile_does_not_invent_client_request_id_on_failover() {
         auth_token: "token-failover-stable",
         account_id: None,
         include_account_id: true,
-        upstream_cookie: None,
         incoming_session_id: Some("sticky-session"),
         incoming_client_request_id: None,
         incoming_subagent: None,

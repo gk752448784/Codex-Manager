@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use codexmanager_core::storage::ConversationBinding;
 use reqwest::Method;
 use tiny_http::Request;
 
@@ -23,6 +24,9 @@ pub(super) struct LocalValidationResult {
     pub(super) tool_name_restore_map: super::ToolNameRestoreMap,
     pub(super) request_method: String,
     pub(super) key_id: String,
+    pub(super) platform_key_hash: String,
+    pub(super) local_conversation_id: Option<String>,
+    pub(super) conversation_binding: Option<ConversationBinding>,
     pub(super) model_for_log: Option<String>,
     pub(super) reasoning_for_log: Option<String>,
     pub(super) method: Method,

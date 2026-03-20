@@ -7,6 +7,7 @@ const API_KEY_SELECT_SQL: &str = "SELECT
     k.name,
     COALESCE(p.default_model, k.model_slug) AS model_slug,
     COALESCE(p.reasoning_effort, k.reasoning_effort) AS reasoning_effort,
+    p.service_tier,
     COALESCE(p.client_type, 'codex') AS client_type,
     COALESCE(p.protocol_type, 'openai_compat') AS protocol_type,
     COALESCE(p.auth_scheme, 'authorization_bearer') AS auth_scheme,
@@ -35,8 +36,8 @@ impl Storage {
             ),
         )?;
         self.conn.execute(
-            "INSERT INTO api_key_profiles (key_id, client_type, protocol_type, auth_scheme, upstream_base_url, static_headers_json, default_model, reasoning_effort, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            "INSERT INTO api_key_profiles (key_id, client_type, protocol_type, auth_scheme, upstream_base_url, static_headers_json, default_model, reasoning_effort, service_tier, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
              ON CONFLICT(key_id) DO UPDATE SET
                client_type = excluded.client_type,
                protocol_type = excluded.protocol_type,
@@ -45,6 +46,7 @@ impl Storage {
                static_headers_json = excluded.static_headers_json,
                default_model = excluded.default_model,
                reasoning_effort = excluded.reasoning_effort,
+               service_tier = excluded.service_tier,
                updated_at = excluded.updated_at",
             (
                 &key.id,
@@ -55,6 +57,7 @@ impl Storage {
                 &key.static_headers_json,
                 &key.model_slug,
                 &key.reasoning_effort,
+                &key.service_tier,
                 key.created_at,
                 now_ts(),
             ),
@@ -131,6 +134,7 @@ impl Storage {
         key_id: &str,
         model_slug: Option<&str>,
         reasoning_effort: Option<&str>,
+        service_tier: Option<&str>,
     ) -> Result<()> {
         self.conn.execute(
             "UPDATE api_keys SET model_slug = ?1, reasoning_effort = ?2 WHERE id = ?3",
@@ -147,6 +151,7 @@ impl Storage {
                 static_headers_json,
                 default_model,
                 reasoning_effort,
+                service_tier,
                 created_at,
                 updated_at
             )
@@ -160,14 +165,16 @@ impl Storage {
                 ?2,
                 ?3,
                 ?4,
-                ?4
+                ?5,
+                ?5
             FROM api_keys
             WHERE id = ?1
             ON CONFLICT(key_id) DO UPDATE SET
                 default_model = excluded.default_model,
                 reasoning_effort = excluded.reasoning_effort,
+                service_tier = excluded.service_tier,
                 updated_at = excluded.updated_at",
-            (key_id, model_slug, reasoning_effort, now),
+            (key_id, model_slug, reasoning_effort, service_tier, now),
         )?;
         Ok(())
     }
@@ -180,6 +187,7 @@ impl Storage {
         auth_scheme: &str,
         upstream_base_url: Option<&str>,
         static_headers_json: Option<&str>,
+        service_tier: Option<&str>,
     ) -> Result<()> {
         self.conn.execute(
             "INSERT INTO api_key_profiles (
@@ -191,6 +199,7 @@ impl Storage {
                 static_headers_json,
                 default_model,
                 reasoning_effort,
+                service_tier,
                 created_at,
                 updated_at
             )
@@ -203,8 +212,9 @@ impl Storage {
                 ?6,
                 model_slug,
                 reasoning_effort,
+                ?7,
                 created_at,
-                ?7
+                ?8
             FROM api_keys
             WHERE id = ?1
             ON CONFLICT(key_id) DO UPDATE SET
@@ -213,6 +223,7 @@ impl Storage {
                 auth_scheme = excluded.auth_scheme,
                 upstream_base_url = excluded.upstream_base_url,
                 static_headers_json = excluded.static_headers_json,
+                service_tier = excluded.service_tier,
                 updated_at = excluded.updated_at",
             (
                 key_id,
@@ -221,6 +232,7 @@ impl Storage {
                 auth_scheme,
                 upstream_base_url,
                 static_headers_json,
+                service_tier,
                 now_ts(),
             ),
         )?;
@@ -281,6 +293,7 @@ impl Storage {
                 static_headers_json TEXT,
                 default_model TEXT,
                 reasoning_effort TEXT,
+                service_tier TEXT,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )",
@@ -291,6 +304,11 @@ impl Storage {
             [],
         )?;
         self.backfill_api_key_profiles()
+    }
+
+    pub(super) fn ensure_api_key_service_tier_column(&self) -> Result<()> {
+        self.ensure_column("api_key_profiles", "service_tier", "TEXT")?;
+        Ok(())
     }
 
     pub(super) fn ensure_api_key_secrets_table(&self) -> Result<()> {
@@ -321,6 +339,7 @@ impl Storage {
                 static_headers_json,
                 default_model,
                 reasoning_effort,
+                service_tier,
                 created_at,
                 updated_at
             )
@@ -333,6 +352,7 @@ impl Storage {
                 NULL,
                 model_slug,
                 reasoning_effort,
+                NULL,
                 created_at,
                 created_at
             FROM api_keys",
@@ -348,14 +368,15 @@ fn map_api_key_row(row: &Row<'_>) -> Result<ApiKey> {
         name: row.get(1)?,
         model_slug: row.get(2)?,
         reasoning_effort: row.get(3)?,
-        client_type: row.get(4)?,
-        protocol_type: row.get(5)?,
-        auth_scheme: row.get(6)?,
-        upstream_base_url: row.get(7)?,
-        static_headers_json: row.get(8)?,
-        key_hash: row.get(9)?,
-        status: row.get(10)?,
-        created_at: row.get(11)?,
-        last_used_at: row.get(12)?,
+        service_tier: row.get(4)?,
+        client_type: row.get(5)?,
+        protocol_type: row.get(6)?,
+        auth_scheme: row.get(7)?,
+        upstream_base_url: row.get(8)?,
+        static_headers_json: row.get(9)?,
+        key_hash: row.get(10)?,
+        status: row.get(11)?,
+        created_at: row.get(12)?,
+        last_used_at: row.get(13)?,
     })
 }

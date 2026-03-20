@@ -63,13 +63,6 @@ export const serviceClient = {
     invoke("service_gateway_manual_account_set", withAddr({ accountId })),
   clearManualPreferredAccount: () =>
     invoke("service_gateway_manual_account_clear", withAddr()),
-  getHeaderPolicy: () =>
-    invoke<string>("service_gateway_header_policy_get", withAddr()),
-  setHeaderPolicy: (cpaNoCookieHeaderModeEnabled: boolean) =>
-    invoke(
-      "service_gateway_header_policy_set",
-      withAddr({ cpaNoCookieHeaderModeEnabled })
-    ),
 
   getBackgroundTasks: () =>
     invoke<BackgroundTaskSettings>("service_gateway_background_tasks_get", withAddr()),

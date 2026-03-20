@@ -241,16 +241,36 @@ pub(super) fn apply_request_overrides(
     reasoning_effort: Option<&str>,
     upstream_base_url: Option<&str>,
 ) -> Vec<u8> {
-    apply_request_overrides_with_prompt_cache_key(
+    apply_request_overrides_with_service_tier(
         path,
         body,
         model_slug,
         reasoning_effort,
+        None,
+        upstream_base_url,
+    )
+}
+
+pub(super) fn apply_request_overrides_with_service_tier(
+    path: &str,
+    body: Vec<u8>,
+    model_slug: Option<&str>,
+    reasoning_effort: Option<&str>,
+    service_tier: Option<&str>,
+    upstream_base_url: Option<&str>,
+) -> Vec<u8> {
+    apply_request_overrides_with_service_tier_and_prompt_cache_key(
+        path,
+        body,
+        model_slug,
+        reasoning_effort,
+        service_tier,
         upstream_base_url,
         None,
     )
 }
 
+#[allow(dead_code)]
 pub(super) fn apply_request_overrides_with_prompt_cache_key(
     path: &str,
     body: Vec<u8>,
@@ -259,10 +279,95 @@ pub(super) fn apply_request_overrides_with_prompt_cache_key(
     upstream_base_url: Option<&str>,
     prompt_cache_key: Option<&str>,
 ) -> Vec<u8> {
+    apply_request_overrides_with_service_tier_and_prompt_cache_key(
+        path,
+        body,
+        model_slug,
+        reasoning_effort,
+        None,
+        upstream_base_url,
+        prompt_cache_key,
+    )
+}
+
+pub(super) fn apply_request_overrides_with_service_tier_and_prompt_cache_key(
+    path: &str,
+    body: Vec<u8>,
+    model_slug: Option<&str>,
+    reasoning_effort: Option<&str>,
+    service_tier: Option<&str>,
+    upstream_base_url: Option<&str>,
+    prompt_cache_key: Option<&str>,
+) -> Vec<u8> {
+    apply_request_overrides_with_prompt_cache_key_mode(
+        path,
+        body,
+        model_slug,
+        reasoning_effort,
+        upstream_base_url,
+        prompt_cache_key,
+        false,
+        service_tier,
+    )
+}
+
+pub(super) fn apply_request_overrides_with_forced_prompt_cache_key(
+    path: &str,
+    body: Vec<u8>,
+    model_slug: Option<&str>,
+    reasoning_effort: Option<&str>,
+    upstream_base_url: Option<&str>,
+    prompt_cache_key: Option<&str>,
+) -> Vec<u8> {
+    apply_request_overrides_with_service_tier_and_forced_prompt_cache_key(
+        path,
+        body,
+        model_slug,
+        reasoning_effort,
+        None,
+        upstream_base_url,
+        prompt_cache_key,
+    )
+}
+
+pub(super) fn apply_request_overrides_with_service_tier_and_forced_prompt_cache_key(
+    path: &str,
+    body: Vec<u8>,
+    model_slug: Option<&str>,
+    reasoning_effort: Option<&str>,
+    service_tier: Option<&str>,
+    upstream_base_url: Option<&str>,
+    prompt_cache_key: Option<&str>,
+) -> Vec<u8> {
+    apply_request_overrides_with_prompt_cache_key_mode(
+        path,
+        body,
+        model_slug,
+        reasoning_effort,
+        upstream_base_url,
+        prompt_cache_key,
+        true,
+        service_tier,
+    )
+}
+
+fn apply_request_overrides_with_prompt_cache_key_mode(
+    path: &str,
+    body: Vec<u8>,
+    model_slug: Option<&str>,
+    reasoning_effort: Option<&str>,
+    upstream_base_url: Option<&str>,
+    prompt_cache_key: Option<&str>,
+    force_prompt_cache_key: bool,
+    service_tier: Option<&str>,
+) -> Vec<u8> {
     let use_codex_responses_compat = should_apply_codex_responses_compat(path, upstream_base_url);
     let normalized_model = model_slug.map(str::trim).filter(|v| !v.is_empty());
     let normalized_reasoning = reasoning_effort
         .and_then(crate::reasoning_effort::normalize_reasoning_effort)
+        .map(str::to_string);
+    let normalized_service_tier = service_tier
+        .and_then(crate::apikey::service_tier::normalize_service_tier)
         .map(str::to_string);
     if body.is_empty() {
         return body;
@@ -288,6 +393,14 @@ pub(super) fn apply_request_overrides_with_prompt_cache_key(
                 if chat_completions::apply_reasoning_override(path, obj, Some(level)) {
                     changed = true;
                 }
+            }
+
+            if let Some(service_tier) = normalized_service_tier.as_deref() {
+                obj.insert(
+                    "service_tier".to_string(),
+                    Value::String(service_tier.to_string()),
+                );
+                changed = true;
             }
 
             if chat_completions::ensure_reasoning_effort(path, obj) {
@@ -341,7 +454,12 @@ pub(super) fn apply_request_overrides_with_prompt_cache_key(
                     if responses::ensure_reasoning_include(path, obj) {
                         changed = true;
                     }
-                    if responses::ensure_prompt_cache_key(path, obj, prompt_cache_key) {
+                    if responses::ensure_prompt_cache_key(
+                        path,
+                        obj,
+                        prompt_cache_key,
+                        force_prompt_cache_key,
+                    ) {
                         changed = true;
                     }
                 }

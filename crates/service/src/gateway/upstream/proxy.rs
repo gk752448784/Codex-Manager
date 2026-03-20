@@ -71,6 +71,9 @@ pub(in super::super) fn proxy_validated_request(
         tool_name_restore_map,
         request_method,
         key_id,
+        platform_key_hash,
+        local_conversation_id,
+        conversation_binding,
         model_for_log,
         reasoning_for_log,
         method,
@@ -79,7 +82,7 @@ pub(in super::super) fn proxy_validated_request(
     let client_is_stream = is_stream;
     let is_compact_path =
         path == "/v1/responses/compact" || path.starts_with("/v1/responses/compact?");
-    // 中文注释：对齐 CPA：/v1/responses 上游固定走 SSE。
+    // 中文注释：对齐 Codex 上游协议：/v1/responses 固定走 SSE。
     // 下游是否流式仍由客户端 `stream` 参数决定（在 response bridge 层聚合/透传）。
     let upstream_is_stream =
         client_is_stream || (path.starts_with("/v1/responses") && !is_compact_path);
@@ -146,6 +149,9 @@ pub(in super::super) fn proxy_validated_request(
         &body,
         &mut candidates,
         key_id.as_str(),
+        platform_key_hash.as_str(),
+        local_conversation_id.as_deref(),
+        conversation_binding.as_ref(),
         model_for_log.as_deref(),
         trace_id.as_str(),
     );

@@ -159,7 +159,8 @@ export function normalizeAccount(item: unknown, usage?: AccountUsage | null): Ac
   const name = asString(source.label || source.name) || id;
   const groupName = asString(source.groupName ?? source.group_name);
   const status = asString(source.status);
-  const availability = calcAvailability(usage, { status });
+  const statusReason = asString(source.statusReason ?? source.status_reason);
+  const availability = calcAvailability(usage, { status, statusReason });
   const usageBuckets = getUsageDisplayBuckets(usage);
 
   return {
@@ -173,6 +174,7 @@ export function normalizeAccount(item: unknown, usage?: AccountUsage | null): Ac
     chatgptAccountId: asString(source.chatgptAccountId ?? source.chatgpt_account_id) || null,
     sort: asInteger(source.sort ?? source.priority, 0, 0),
     status,
+    statusReason,
     isAvailable: availability.level === "ok",
     isLowQuota: isLowQuotaUsage(usage),
     lastRefreshAt: usage?.capturedAt ?? null,
@@ -238,6 +240,7 @@ export function normalizeApiKey(item: unknown): ApiKey | null {
     model: asString(source.modelSlug ?? source.model_slug),
     modelSlug: asString(source.modelSlug ?? source.model_slug),
     reasoningEffort: asString(source.reasoningEffort ?? source.reasoning_effort),
+    serviceTier: asString(source.serviceTier ?? source.service_tier),
     protocol: asString(source.protocolType ?? source.protocol_type) || "openai_compat",
     clientType: asString(source.clientType ?? source.client_type),
     authScheme: asString(source.authScheme ?? source.auth_scheme),
@@ -502,14 +505,11 @@ export function normalizeAppSettings(payload: unknown): AppSettings {
     ),
     requestCompressionEnabled: asBoolean(source.requestCompressionEnabled, true),
     gatewayOriginator: asString(source.gatewayOriginator) || "codex_cli_rs",
+    gatewayUserAgentVersion: asString(source.gatewayUserAgentVersion) || "0.101.0",
     gatewayResidencyRequirement: asString(source.gatewayResidencyRequirement),
     gatewayResidencyRequirementOptions: asArray(
       source.gatewayResidencyRequirementOptions
     ).map((item) => asString(item)),
-    cpaNoCookieHeaderModeEnabled: asBoolean(
-      source.cpaNoCookieHeaderModeEnabled,
-      false
-    ),
     upstreamProxyUrl: asString(source.upstreamProxyUrl),
     upstreamStreamTimeoutMs: asInteger(source.upstreamStreamTimeoutMs, 1_800_000, 0),
     sseKeepaliveIntervalMs: asInteger(source.sseKeepaliveIntervalMs, 15_000, 1),

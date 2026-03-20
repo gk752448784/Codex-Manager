@@ -5,12 +5,12 @@ use super::{
     apply_env_overrides_to_process, list_app_settings_map, normalize_optional_text,
     parse_bool_with_default, persisted_env_overrides_missing_process_env,
     reload_runtime_after_env_override_apply, set_service_bind_mode, BackgroundTasksInput,
-    APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY, APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY,
-    APP_SETTING_GATEWAY_FREE_ACCOUNT_MAX_MODEL_KEY, APP_SETTING_GATEWAY_ORIGINATOR_KEY,
-    APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
+    APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY, APP_SETTING_GATEWAY_FREE_ACCOUNT_MAX_MODEL_KEY,
+    APP_SETTING_GATEWAY_ORIGINATOR_KEY, APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
     APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY, APP_SETTING_GATEWAY_ROUTE_STRATEGY_KEY,
     APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY, APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
-    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY, SERVICE_BIND_MODE_SETTING_KEY,
+    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY, APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
+    SERVICE_BIND_MODE_SETTING_KEY,
 };
 
 pub fn sync_runtime_settings_from_storage() {
@@ -48,15 +48,19 @@ pub fn sync_runtime_settings_from_storage() {
             }
         }
     }
+    if let Some(version) = settings.get(APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY) {
+        if let Some(version) = normalize_optional_text(Some(version)) {
+            if let Err(err) = gateway::set_codex_user_agent_version(&version) {
+                log::warn!("sync persisted gateway user agent version failed: {err}");
+            }
+        }
+    }
     if let Some(residency_requirement) = settings.get(APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY)
     {
         let normalized = normalize_optional_text(Some(residency_requirement));
         if let Err(err) = gateway::set_residency_requirement(normalized.as_deref()) {
             log::warn!("sync persisted gateway residency requirement failed: {err}");
         }
-    }
-    if let Some(raw) = settings.get(APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY) {
-        gateway::set_cpa_no_cookie_header_mode(parse_bool_with_default(raw, false));
     }
     if let Some(proxy_url) = settings.get(APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY) {
         let normalized = normalize_optional_text(Some(proxy_url));

@@ -14,6 +14,47 @@ pub(crate) fn set_account_status(storage: &Storage, account_id: &str, status: &s
     }
 }
 
+fn should_preserve_manual_account_status(storage: &Storage, account_id: &str) -> bool {
+    storage
+        .find_account_by_id(account_id)
+        .ok()
+        .flatten()
+        .map(|account| {
+            account.status.trim().eq_ignore_ascii_case("disabled")
+                || account.status.trim().eq_ignore_ascii_case("inactive")
+        })
+        .unwrap_or(false)
+}
+
+pub(crate) fn deactivation_reason_from_message(message: &str) -> Option<&'static str> {
+    let normalized = message.trim().to_ascii_lowercase();
+    if normalized.contains("account_deactivated") || normalized.contains("account deactivated") {
+        return Some("account_deactivated");
+    }
+    if normalized.contains("workspace_deactivated")
+        || normalized.contains("workspace deactivated")
+        || normalized.contains("deactivated workspace")
+    {
+        return Some("workspace_deactivated");
+    }
+    None
+}
+
+pub(crate) fn mark_account_unavailable_for_deactivation_error(
+    storage: &Storage,
+    account_id: &str,
+    err: &str,
+) -> bool {
+    let Some(reason) = deactivation_reason_from_message(err) else {
+        return false;
+    };
+    if should_preserve_manual_account_status(storage, account_id) {
+        return false;
+    }
+    set_account_status(storage, account_id, "unavailable", reason);
+    true
+}
+
 pub(crate) fn mark_account_unavailable_for_refresh_token_error(
     storage: &Storage,
     account_id: &str,
@@ -22,6 +63,9 @@ pub(crate) fn mark_account_unavailable_for_refresh_token_error(
     let Some(reason) = crate::usage_http::refresh_token_auth_error_reason_from_message(err) else {
         return false;
     };
+    if should_preserve_manual_account_status(storage, account_id) {
+        return false;
+    }
     let status_reason = format!("refresh_token_invalid:{}", reason.as_code());
     set_account_status(storage, account_id, "unavailable", &status_reason);
     true

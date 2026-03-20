@@ -1,6 +1,7 @@
 use codexmanager_core::rpc::types::ApiKeyCreateResult;
 use codexmanager_core::storage::{now_ts, ApiKey};
 
+use crate::apikey::service_tier::normalize_service_tier_owned;
 use crate::apikey_profile::{
     normalize_protocol_type, normalize_static_headers_json, normalize_upstream_base_url,
     profile_from_protocol,
@@ -14,6 +15,7 @@ pub(crate) fn create_api_key(
     name: Option<String>,
     model_slug: Option<String>,
     reasoning_effort: Option<String>,
+    service_tier: Option<String>,
     protocol_type: Option<String>,
     upstream_base_url: Option<String>,
     static_headers_json: Option<String>,
@@ -32,6 +34,7 @@ pub(crate) fn create_api_key(
         name,
         model_slug,
         reasoning_effort: normalize_reasoning_effort_owned(reasoning_effort),
+        service_tier: normalize_service_tier_owned(service_tier)?,
         client_type,
         protocol_type,
         auth_scheme,

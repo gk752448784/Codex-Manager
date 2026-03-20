@@ -12,6 +12,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeRoutePath } from "@/lib/utils/static-routes";
 import { Button } from "@/components/ui/button";
 import { isTauriRuntime } from "@/lib/api/transport";
 import { useAppStore } from "@/lib/store/useAppStore";
@@ -34,11 +35,6 @@ const NAV_ITEMS = [
   { name: "设置", href: "/settings/", icon: Settings },
 ];
 const DESKTOP_NAVIGATION_FALLBACK_MS = 500;
-
-function normalizeRoutePath(path: string) {
-  if (path === "/") return path;
-  return path.replace(/\/+$/, "");
-}
 
 const NavItem = memo(({
   item,

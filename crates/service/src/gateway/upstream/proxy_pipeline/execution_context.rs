@@ -115,6 +115,18 @@ impl<'a> GatewayUpstreamExecutionContext<'a> {
         );
     }
 
+    pub(in super::super) fn mark_account_unavailable_for_gateway_error(
+        &self,
+        account_id: &str,
+        err: &str,
+    ) -> bool {
+        crate::account_status::mark_account_unavailable_for_deactivation_error(
+            self.storage,
+            account_id,
+            err,
+        )
+    }
+
     pub(in super::super) fn log_final_result(
         &self,
         final_account_id: Option<&str>,

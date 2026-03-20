@@ -20,14 +20,13 @@ static UPSTREAM_CONNECT_TIMEOUT_SECS: AtomicU64 =
 static UPSTREAM_TOTAL_TIMEOUT_MS: AtomicU64 = AtomicU64::new(DEFAULT_UPSTREAM_TOTAL_TIMEOUT_MS);
 static UPSTREAM_STREAM_TIMEOUT_MS: AtomicU64 = AtomicU64::new(DEFAULT_UPSTREAM_STREAM_TIMEOUT_MS);
 static ACCOUNT_MAX_INFLIGHT: AtomicUsize = AtomicUsize::new(DEFAULT_ACCOUNT_MAX_INFLIGHT);
-static CPA_NO_COOKIE_HEADER_MODE: AtomicBool = AtomicBool::new(DEFAULT_CPA_NO_COOKIE_HEADER_MODE);
 static STRICT_REQUEST_PARAM_ALLOWLIST: AtomicBool =
     AtomicBool::new(DEFAULT_STRICT_REQUEST_PARAM_ALLOWLIST);
 static ENABLE_REQUEST_COMPRESSION: AtomicBool = AtomicBool::new(DEFAULT_ENABLE_REQUEST_COMPRESSION);
-static UPSTREAM_COOKIE: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 static UPSTREAM_PROXY_URL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 static FREE_ACCOUNT_MAX_MODEL: OnceLock<RwLock<String>> = OnceLock::new();
 static ORIGINATOR: OnceLock<RwLock<String>> = OnceLock::new();
+static CODEX_USER_AGENT_VERSION: OnceLock<RwLock<String>> = OnceLock::new();
 static RESIDENCY_REQUIREMENT: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 static TOKEN_EXCHANGE_CLIENT_ID: OnceLock<RwLock<String>> = OnceLock::new();
 static TOKEN_EXCHANGE_ISSUER: OnceLock<RwLock<String>> = OnceLock::new();
@@ -38,13 +37,13 @@ const DEFAULT_UPSTREAM_TOTAL_TIMEOUT_MS: u64 = 120_000;
 const DEFAULT_UPSTREAM_STREAM_TIMEOUT_MS: u64 = 1_800_000;
 // 中文注释：默认把单账号并发收紧到 1，避免多个长连接 Codex 会话同时压到同一账号上。
 const DEFAULT_ACCOUNT_MAX_INFLIGHT: usize = 1;
-const DEFAULT_CPA_NO_COOKIE_HEADER_MODE: bool = false;
 const DEFAULT_STRICT_REQUEST_PARAM_ALLOWLIST: bool = true;
 const DEFAULT_ENABLE_REQUEST_COMPRESSION: bool = true;
 const DEFAULT_REQUEST_GATE_WAIT_TIMEOUT_MS: u64 = 300;
 const DEFAULT_TRACE_BODY_PREVIEW_MAX_BYTES: usize = 0;
 const DEFAULT_FRONT_PROXY_MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
 const DEFAULT_FREE_ACCOUNT_MAX_MODEL: &str = "auto";
+const DEFAULT_CODEX_USER_AGENT_VERSION: &str = "0.101.0";
 const MAX_UPSTREAM_PROXY_POOL_SIZE: usize = 5;
 
 const ENV_REQUEST_GATE_WAIT_TIMEOUT_MS: &str = "CODEXMANAGER_REQUEST_GATE_WAIT_TIMEOUT_MS";
@@ -54,7 +53,6 @@ const ENV_UPSTREAM_CONNECT_TIMEOUT_SECS: &str = "CODEXMANAGER_UPSTREAM_CONNECT_T
 const ENV_UPSTREAM_TOTAL_TIMEOUT_MS: &str = "CODEXMANAGER_UPSTREAM_TOTAL_TIMEOUT_MS";
 const ENV_UPSTREAM_STREAM_TIMEOUT_MS: &str = "CODEXMANAGER_UPSTREAM_STREAM_TIMEOUT_MS";
 const ENV_ACCOUNT_MAX_INFLIGHT: &str = "CODEXMANAGER_ACCOUNT_MAX_INFLIGHT";
-const ENV_CPA_NO_COOKIE_HEADER_MODE: &str = "CODEXMANAGER_CPA_NO_COOKIE_HEADER_MODE";
 const ENV_STRICT_REQUEST_PARAM_ALLOWLIST: &str = "CODEXMANAGER_STRICT_REQUEST_PARAM_ALLOWLIST";
 const ENV_ENABLE_REQUEST_COMPRESSION: &str = "CODEXMANAGER_ENABLE_REQUEST_COMPRESSION";
 const ENV_TOKEN_EXCHANGE_CLIENT_ID: &str = "CODEXMANAGER_CLIENT_ID";
@@ -185,19 +183,9 @@ pub(crate) fn account_max_inflight_limit() -> usize {
     ACCOUNT_MAX_INFLIGHT.load(Ordering::Relaxed)
 }
 
-pub(super) fn cpa_no_cookie_header_mode_enabled() -> bool {
-    ensure_runtime_config_loaded();
-    CPA_NO_COOKIE_HEADER_MODE.load(Ordering::Relaxed)
-}
-
 pub(crate) fn strict_request_param_allowlist_enabled() -> bool {
     ensure_runtime_config_loaded();
     STRICT_REQUEST_PARAM_ALLOWLIST.load(Ordering::Relaxed)
-}
-
-pub(super) fn set_cpa_no_cookie_header_mode_enabled(enabled: bool) {
-    ensure_runtime_config_loaded();
-    CPA_NO_COOKIE_HEADER_MODE.store(enabled, Ordering::Relaxed);
 }
 
 pub(crate) fn request_gate_wait_timeout() -> Duration {
@@ -215,11 +203,6 @@ pub(crate) fn front_proxy_max_body_bytes() -> usize {
     FRONT_PROXY_MAX_BODY_BYTES.load(Ordering::Relaxed)
 }
 
-pub(super) fn upstream_cookie() -> Option<String> {
-    ensure_runtime_config_loaded();
-    crate::lock_utils::read_recover(upstream_cookie_cell(), "upstream_cookie").clone()
-}
-
 pub(super) fn upstream_proxy_url() -> Option<String> {
     ensure_runtime_config_loaded();
     current_upstream_proxy_url()
@@ -235,6 +218,10 @@ pub(crate) fn current_originator() -> String {
     crate::lock_utils::read_recover(originator_cell(), "originator").clone()
 }
 
+pub(crate) fn current_wire_originator() -> String {
+    DEFAULT_ORIGINATOR.to_string()
+}
+
 pub(crate) fn set_originator(originator: &str) -> Result<String, String> {
     ensure_runtime_config_loaded();
     let normalized = normalize_originator(originator)?;
@@ -244,15 +231,36 @@ pub(crate) fn set_originator(originator: &str) -> Result<String, String> {
     Ok(normalized)
 }
 
+pub(crate) fn current_codex_user_agent_version() -> String {
+    ensure_runtime_config_loaded();
+    crate::lock_utils::read_recover(codex_user_agent_version_cell(), "codex_user_agent_version")
+        .clone()
+}
+
+pub(crate) fn set_codex_user_agent_version(version: &str) -> Result<String, String> {
+    ensure_runtime_config_loaded();
+    let normalized = normalize_codex_user_agent_version(version)?;
+    let mut cached = crate::lock_utils::write_recover(
+        codex_user_agent_version_cell(),
+        "codex_user_agent_version",
+    );
+    *cached = normalized.clone();
+    Ok(normalized)
+}
+
 pub(crate) fn current_codex_user_agent() -> String {
     ensure_runtime_config_loaded();
-    let originator = current_originator();
+    let originator = current_wire_originator();
+    let version = current_codex_user_agent_version();
+    let os_info = os_info::get();
     format!(
-        "{}/{} ({}; {}) CodexManagerGateway",
+        "{}/{} ({} {}; {}) {}",
         originator,
-        "0.101.0",
-        std::env::consts::OS,
-        std::env::consts::ARCH
+        version,
+        os_info.os_type(),
+        os_info.version(),
+        os_info.architecture().unwrap_or("unknown"),
+        current_codex_terminal_user_agent_token()
     )
 }
 
@@ -378,13 +386,6 @@ pub(super) fn reload_from_env() {
         env_usize_or(ENV_ACCOUNT_MAX_INFLIGHT, DEFAULT_ACCOUNT_MAX_INFLIGHT),
         Ordering::Relaxed,
     );
-    CPA_NO_COOKIE_HEADER_MODE.store(
-        env_bool_or(
-            ENV_CPA_NO_COOKIE_HEADER_MODE,
-            DEFAULT_CPA_NO_COOKIE_HEADER_MODE,
-        ),
-        Ordering::Relaxed,
-    );
     STRICT_REQUEST_PARAM_ALLOWLIST.store(
         env_bool_or(
             ENV_STRICT_REQUEST_PARAM_ALLOWLIST,
@@ -399,11 +400,6 @@ pub(super) fn reload_from_env() {
         ),
         Ordering::Relaxed,
     );
-
-    let cookie = env_non_empty(ENV_UPSTREAM_COOKIE);
-    let mut cached_cookie =
-        crate::lock_utils::write_recover(upstream_cookie_cell(), "upstream_cookie");
-    *cached_cookie = cookie;
 
     let client_id = env_non_empty(ENV_TOKEN_EXCHANGE_CLIENT_ID)
         .unwrap_or_else(|| DEFAULT_CLIENT_ID.to_string());
@@ -451,6 +447,13 @@ pub(super) fn reload_from_env() {
     *cached_originator = originator;
     drop(cached_originator);
 
+    let mut cached_user_agent_version = crate::lock_utils::write_recover(
+        codex_user_agent_version_cell(),
+        "codex_user_agent_version",
+    );
+    *cached_user_agent_version = DEFAULT_CODEX_USER_AGENT_VERSION.to_string();
+    drop(cached_user_agent_version);
+
     let residency_requirement = env_non_empty(ENV_RESIDENCY_REQUIREMENT)
         .and_then(|value| normalize_residency_requirement(Some(value.as_str())).ok())
         .flatten();
@@ -461,8 +464,6 @@ pub(super) fn reload_from_env() {
 
     refresh_upstream_clients_from_runtime_config();
 }
-
-const ENV_UPSTREAM_COOKIE: &str = "CODEXMANAGER_UPSTREAM_COOKIE";
 
 fn ensure_runtime_config_loaded() {
     let _ = RUNTIME_CONFIG_LOADED.get_or_init(|| reload_from_env());
@@ -523,10 +524,6 @@ fn build_upstream_client_pool() -> UpstreamClientPool {
     }
 }
 
-fn upstream_cookie_cell() -> &'static RwLock<Option<String>> {
-    UPSTREAM_COOKIE.get_or_init(|| RwLock::new(None))
-}
-
 fn upstream_proxy_url_cell() -> &'static RwLock<Option<String>> {
     UPSTREAM_PROXY_URL.get_or_init(|| RwLock::new(None))
 }
@@ -537,6 +534,11 @@ fn free_account_max_model_cell() -> &'static RwLock<String> {
 
 fn originator_cell() -> &'static RwLock<String> {
     ORIGINATOR.get_or_init(|| RwLock::new(DEFAULT_ORIGINATOR.to_string()))
+}
+
+fn codex_user_agent_version_cell() -> &'static RwLock<String> {
+    CODEX_USER_AGENT_VERSION
+        .get_or_init(|| RwLock::new(DEFAULT_CODEX_USER_AGENT_VERSION.to_string()))
 }
 
 fn residency_requirement_cell() -> &'static RwLock<Option<String>> {
@@ -623,6 +625,51 @@ fn normalize_originator(raw: &str) -> Result<String, String> {
         return Err("originator contains control characters".to_string());
     }
     Ok(normalized.to_string())
+}
+
+fn normalize_codex_user_agent_version(raw: &str) -> Result<String, String> {
+    let normalized = raw.trim();
+    if normalized.is_empty() {
+        return Err("codexUserAgentVersion is required".to_string());
+    }
+    if normalized.chars().any(|ch| ch.is_ascii_control()) {
+        return Err("codexUserAgentVersion contains control characters".to_string());
+    }
+    if normalized
+        .chars()
+        .any(|ch| !(ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_' | '+')))
+    {
+        return Err("codexUserAgentVersion contains unsupported characters".to_string());
+    }
+    Ok(normalized.to_string())
+}
+
+fn current_codex_terminal_user_agent_token() -> String {
+    if let Some(program) = env_non_empty("TERM_PROGRAM") {
+        if let Some(version) = env_non_empty("TERM_PROGRAM_VERSION") {
+            return sanitize_user_agent_token(format!("{program}/{version}"));
+        }
+        return sanitize_user_agent_token(program);
+    }
+    if std::env::var_os("WT_SESSION").is_some() {
+        return "WindowsTerminal".to_string();
+    }
+    if let Some(term) = env_non_empty("TERM") {
+        return sanitize_user_agent_token(term);
+    }
+    "unknown".to_string()
+}
+
+fn sanitize_user_agent_token(raw: String) -> String {
+    let sanitized: String = raw
+        .chars()
+        .map(|ch| if matches!(ch, ' '..='~') { ch } else { '_' })
+        .collect();
+    let trimmed = sanitized.trim();
+    if trimmed.is_empty() {
+        return "unknown".to_string();
+    }
+    trimmed.replace('(', "_").replace(')', "_")
 }
 
 fn normalize_residency_requirement(raw: Option<&str>) -> Result<Option<String>, String> {

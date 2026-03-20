@@ -85,6 +85,11 @@ const ROUTE_STRATEGY_LABELS: Record<string, string> = {
   balanced: "均衡轮询 (Balanced)",
 };
 
+const SERVICE_LISTEN_MODE_LABELS: Record<string, string> = {
+  loopback: "仅本机 (localhost)",
+  all_interfaces: "全部网卡 (0.0.0.0)",
+};
+
 const RESIDENCY_REQUIREMENT_LABELS: Record<string, string> = {
   "": "不限制",
   us: "仅美国 (us)",
@@ -137,6 +142,12 @@ function parseIntegerInput(value: string, minimum = 0): number | null {
   const rounded = Math.trunc(numeric);
   if (rounded < minimum) return null;
   return rounded;
+}
+
+function inferServiceBindPreview(addr: string, mode: string): string {
+  const normalizedAddr = String(addr || "").trim() || "localhost:48760";
+  const [, port = "48760"] = normalizedAddr.split(":");
+  return mode === "all_interfaces" ? `0.0.0.0:${port}` : `localhost:${port}`;
 }
 
 type UpdateCheckSummary = {
@@ -231,16 +242,19 @@ export default function SettingsPage() {
   const lastSyncedSnapshotThemeRef = useRef<string | null>(null);
   const lastSyncedAppearancePresetRef = useRef<string | null>(null);
   const autoUpdateCheckedRef = useRef(false);
+  const manualUpdateCheckPendingRef = useRef(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>(readInitialSettingsTab);
   const [envSearch, setEnvSearch] = useState("");
   const [selectedEnvKey, setSelectedEnvKey] = useState<string | null>(null);
   const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
   const [upstreamProxyDraft, setUpstreamProxyDraft] = useState<string | null>(null);
   const [gatewayOriginatorDraft, setGatewayOriginatorDraft] = useState<string | null>(null);
+  const [gatewayUserAgentVersionDraft, setGatewayUserAgentVersionDraft] = useState<string | null>(null);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<UpdateCheckSummary | null>(null);
   const [updateDialogCheck, setUpdateDialogCheck] = useState<UpdateCheckSummary | null>(null);
   const [preparedUpdate, setPreparedUpdate] = useState<UpdatePrepareSummary | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [manualUpdateCheckPending, setManualUpdateCheckPending] = useState(false);
   const [transportDraft, setTransportDraft] = useState<
     Partial<Record<"sseKeepaliveIntervalMs" | "upstreamStreamTimeoutMs", string>>
   >({});
@@ -307,6 +321,12 @@ export default function SettingsPage() {
     },
     onError: (error: unknown) => {
       toast.error(`检查更新失败: ${getAppErrorMessage(error)}`);
+    },
+    onSettled: () => {
+      if (manualUpdateCheckPendingRef.current) {
+        manualUpdateCheckPendingRef.current = false;
+        setManualUpdateCheckPending(false);
+      }
     },
   });
 
@@ -386,6 +406,12 @@ export default function SettingsPage() {
       });
   };
 
+  const handleManualCheckUpdate = () => {
+    manualUpdateCheckPendingRef.current = true;
+    setManualUpdateCheckPending(true);
+    checkUpdate.mutate({ silent: false });
+  };
+
   const filteredEnvCatalog = useMemo(() => {
     const catalog = snapshot?.envOverrideCatalog || [];
     if (!envSearch) return catalog;
@@ -405,6 +431,8 @@ export default function SettingsPage() {
   const upstreamProxyInput = upstreamProxyDraft ?? (snapshot?.upstreamProxyUrl || "");
   const gatewayOriginatorInput =
     gatewayOriginatorDraft ?? (snapshot?.gatewayOriginator || "codex_cli_rs");
+  const gatewayUserAgentVersionInput =
+    gatewayUserAgentVersionDraft ?? (snapshot?.gatewayUserAgentVersion || "0.101.0");
   const transportInputValues = {
     sseKeepaliveIntervalMs:
       transportDraft.sseKeepaliveIntervalMs ??
@@ -690,13 +718,15 @@ export default function SettingsPage() {
                   className="gap-2 self-start md:self-auto"
                   disabled={
                     !isDesktopRuntime ||
-                    checkUpdate.isPending ||
+                    manualUpdateCheckPending ||
                     prepareUpdate.isPending ||
                     applyPreparedUpdate.isPending
                   }
-                  onClick={() => checkUpdate.mutate({ silent: false })}
+                  onClick={handleManualCheckUpdate}
                 >
-                  <RefreshCw className={cn("h-4 w-4", checkUpdate.isPending && "animate-spin")} />
+                  <RefreshCw
+                    className={cn("h-4 w-4", manualUpdateCheckPending && "animate-spin")}
+                  />
                   检查更新
                 </Button>
               </div>
@@ -723,6 +753,72 @@ export default function SettingsPage() {
                   onCheckedChange={(value) => updateSettings.mutate({ lowTransparency: value })}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card border-none shadow-md">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base">服务监听</CardTitle>
+              </div>
+              <CardDescription>控制服务仅本机访问，或开放给局域网中的其他设备访问</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-2">
+                <Label>监听地址</Label>
+                <Select
+                  value={snapshot.serviceListenMode || "loopback"}
+                  onValueChange={(value) => {
+                    const nextValue = String(value || "").trim() || "loopback";
+                    if (nextValue === snapshot.serviceListenMode) {
+                      return;
+                    }
+                    updateSettings.mutate({ serviceListenMode: nextValue });
+                  }}
+                >
+                  <SelectTrigger className="w-full md:w-[320px]">
+                    <SelectValue placeholder="选择监听地址模式">
+                      {(value) =>
+                        SERVICE_LISTEN_MODE_LABELS[String(value || "").trim()] ||
+                        String(value || "").trim() ||
+                        "仅本机 (localhost)"
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(snapshot.serviceListenModeOptions?.length
+                      ? snapshot.serviceListenModeOptions
+                      : ["loopback", "all_interfaces"]
+                    ).map((mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {SERVICE_LISTEN_MODE_LABELS[mode] || mode}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-background/45 p-4 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">当前访问地址</span>
+                  <code className="text-xs text-primary">{snapshot.serviceAddr}</code>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">实际监听地址</span>
+                  <code className="text-xs text-primary">
+                    {inferServiceBindPreview(
+                      snapshot.serviceAddr,
+                      snapshot.serviceListenMode || "loopback",
+                    )}
+                  </code>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground">
+                切换到 <code>0.0.0.0</code> 后，局域网设备可通过当前机器 IP 访问；
+                设置保存后需要重启服务才会生效。
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -952,6 +1048,30 @@ export default function SettingsPage() {
               </div>
 
               <div className="grid gap-2">
+                <Label>User-Agent 版本</Label>
+                <Input
+                  className="h-10 max-w-md font-mono"
+                  value={gatewayUserAgentVersionInput}
+                  onChange={(event) => setGatewayUserAgentVersionDraft(event.target.value)}
+                  onBlur={() => {
+                    if (gatewayUserAgentVersionDraft == null) return;
+                    if (gatewayUserAgentVersionInput === (snapshot.gatewayUserAgentVersion || "0.101.0")) {
+                      setGatewayUserAgentVersionDraft(null);
+                      return;
+                    }
+                    void updateSettings
+                      .mutateAsync({ gatewayUserAgentVersion: gatewayUserAgentVersionInput })
+                      .then(() => setGatewayUserAgentVersionDraft(null))
+                      .catch(() => undefined);
+                  }}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  控制真实出站 <code>User-Agent</code> 里的版本号，默认值为 <code>0.101.0</code>。
+                  官方 Codex 升级后，可以在这里手动同步。
+                </p>
+              </div>
+
+              <div className="grid gap-2">
                 <Label>Residency Requirement</Label>
                 <Select
                   value={
@@ -993,19 +1113,6 @@ export default function SettingsPage() {
                   对齐官方 Codex 的 <code>x-openai-internal-codex-residency</code> 头。
                   当前只支持留空或 <code>us</code>。
                 </p>
-              </div>
-
-              <div className="flex items-center justify-between border-t pt-6">
-                <div className="space-y-0.5">
-                  <Label>请求头收敛策略</Label>
-                  <p className="text-xs text-muted-foreground">移除高风险会话头，降低 Cloudflare 验证命中率</p>
-                </div>
-                <Switch
-                  checked={snapshot.cpaNoCookieHeaderModeEnabled}
-                  onCheckedChange={(value) =>
-                    updateSettings.mutate({ cpaNoCookieHeaderModeEnabled: value })
-                  }
-                />
               </div>
 
               <div className="grid gap-2 pt-2">

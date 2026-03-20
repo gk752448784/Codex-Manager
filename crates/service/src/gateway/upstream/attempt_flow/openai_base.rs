@@ -18,7 +18,6 @@ pub(super) fn handle_openai_base_attempt<F>(
     base: &str,
     account: &Account,
     token: &mut Token,
-    upstream_cookie: Option<&str>,
     strip_session_affinity: bool,
     debug: bool,
     has_more_candidates: bool,
@@ -38,7 +37,6 @@ where
         base,
         account,
         token,
-        upstream_cookie,
         strip_session_affinity,
         debug,
     ) {

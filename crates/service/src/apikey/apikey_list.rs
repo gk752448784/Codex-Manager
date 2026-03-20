@@ -15,6 +15,7 @@ pub(crate) fn read_api_keys() -> Result<Vec<ApiKeySummary>, String> {
             name: key.name,
             model_slug: key.model_slug,
             reasoning_effort: key.reasoning_effort,
+            service_tier: key.service_tier,
             client_type: key.client_type,
             protocol_type: key.protocol_type,
             auth_scheme: key.auth_scheme,

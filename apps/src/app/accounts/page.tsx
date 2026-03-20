@@ -66,14 +66,17 @@ import {
 } from "@/components/ui/table";
 import { useAccounts } from "@/hooks/useAccounts";
 import { cn } from "@/lib/utils";
+import { buildStaticRouteUrl } from "@/lib/utils/static-routes";
 import {
   formatTsFromSeconds,
+  getUsageDisplayBuckets,
+  isBannedAccount,
   isPrimaryWindowOnlyUsage,
   isSecondaryWindowOnlyUsage,
 } from "@/lib/utils/usage";
 import { Account } from "@/types";
 
-type StatusFilter = "all" | "available" | "low_quota";
+type StatusFilter = "all" | "available" | "low_quota" | "banned";
 
 function formatGroupFilterLabel(value: string) {
   const nextValue = String(value || "").trim();
@@ -83,20 +86,39 @@ function formatGroupFilterLabel(value: string) {
   return nextValue;
 }
 
+function formatStatusFilterLabel(value: string) {
+  const nextValue = String(value || "").trim();
+  switch (nextValue) {
+    case "available":
+      return "可用";
+    case "low_quota":
+      return "低配额";
+    case "banned":
+      return "封禁";
+    case "all":
+    default:
+      return "全部";
+  }
+}
+
 interface QuotaProgressProps {
   label: string;
   remainPercent: number | null;
+  resetsAt: number | null;
   icon: LucideIcon;
   tone: "green" | "blue";
   emptyText?: string;
+  emptyResetText?: string;
 }
 
 function QuotaProgress({
   label,
   remainPercent,
+  resetsAt,
   icon: Icon,
   tone,
   emptyText = "--",
+  emptyResetText = "未知",
 }: QuotaProgressProps) {
   const value = remainPercent ?? 0;
   const trackClassName = tone === "blue" ? "bg-blue-500/20" : "bg-green-500/20";
@@ -118,6 +140,9 @@ function QuotaProgress({
         trackClassName={trackClassName}
         indicatorClassName={indicatorClassName}
       />
+      <div className="text-[10px] text-muted-foreground">
+        重置: {formatTsFromSeconds(resetsAt, emptyResetText)}
+      </div>
     </div>
   );
 }
@@ -127,7 +152,9 @@ function getAccountStatusAction(account: Account): {
   label: string;
   icon: LucideIcon;
 } {
-  const normalizedStatus = String(account.status || "").trim().toLowerCase();
+  const normalizedStatus = String(account.status || "")
+    .trim()
+    .toLowerCase();
   if (normalizedStatus === "disabled") {
     return { enable: true, label: "启用账号", icon: Power };
   }
@@ -197,10 +224,43 @@ export default function AccountsPage() {
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "available" && account.isAvailable) ||
-        (statusFilter === "low_quota" && account.isLowQuota);
+        (statusFilter === "low_quota" && account.isLowQuota) ||
+        (statusFilter === "banned" && isBannedAccount(account));
       return matchSearch && matchGroup && matchStatus;
     });
   }, [accounts, groupFilter, search, statusFilter]);
+
+  const statusFilterOptions = useMemo(
+    () => [
+      { id: "all" as const, label: `全部 (${accounts.length})` },
+      {
+        id: "available" as const,
+        label: `可用 (${accounts.filter((account) => account.isAvailable).length})`,
+      },
+      {
+        id: "low_quota" as const,
+        label: `低配额 (${accounts.filter((account) => account.isLowQuota).length})`,
+      },
+      {
+        id: "banned" as const,
+        label: `封禁 (${accounts.filter((account) => isBannedAccount(account)).length})`,
+      },
+    ],
+    [accounts],
+  );
+  const unavailableFreeAccountCount = useMemo(
+    () =>
+      accounts.filter(
+        (account) =>
+          !account.isAvailable &&
+          String(account.group || "").trim().toLowerCase() === "free",
+      ).length,
+    [accounts],
+  );
+  const bannedAccountCount = useMemo(
+    () => accounts.filter((account) => isBannedAccount(account)).length,
+    [accounts],
+  );
 
   const pageSizeNumber = Number(pageSize) || 20;
   const totalPages = Math.max(
@@ -282,6 +342,21 @@ export default function AccountsPage() {
       kind: "selected",
       ids: [...effectiveSelectedIds],
       count: effectiveSelectedIds.length,
+    });
+  };
+
+  const handleDeleteBanned = () => {
+    const bannedIds = accounts
+      .filter((account) => isBannedAccount(account))
+      .map((account) => account.id);
+    if (!bannedIds.length) {
+      toast.error("当前没有可清理的封禁账号");
+      return;
+    }
+    setDeleteDialogState({
+      kind: "selected",
+      ids: bannedIds,
+      count: bannedIds.length,
     });
   };
 
@@ -370,28 +445,25 @@ export default function AccountsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex shrink-0 items-center gap-1 rounded-xl border border-border/60 bg-muted/30 p-1">
-              {[
-                { id: "all", label: "全部" },
-                { id: "available", label: "可用" },
-                { id: "low_quota", label: "低配额" },
-              ].map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() =>
-                    handleStatusFilterChange(filter.id as StatusFilter)
-                  }
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
-                    statusFilter === filter.id
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
-                  )}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                handleStatusFilterChange(value as StatusFilter)
+              }
+            >
+              <SelectTrigger className="h-10 w-[152px] shrink-0 rounded-xl bg-card/50">
+                <SelectValue placeholder="全部状态">
+                  {(value) => formatStatusFilterLabel(String(value || ""))}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {statusFilterOptions.map((filter) => (
+                  <SelectItem key={filter.id} value={filter.id}>
+                    {filter.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="hidden min-w-0 lg:block" />
@@ -401,7 +473,7 @@ export default function AccountsPage() {
               <DropdownMenuTrigger>
                 <Button
                   variant="outline"
-                  className="glass-card h-10 min-w-[50px] justify-between gap-2 rounded-xl px-3.5"
+                  className="glass-card h-10 min-w-[50px] justify-between gap-2 rounded-xl px-3"
                   render={<span />}
                   nativeButton={false}
                 >
@@ -478,18 +550,29 @@ export default function AccountsPage() {
                     onClick={() => deleteUnavailableFree()}
                   >
                     <Trash2 className="mr-2 h-4 w-4" /> 一键清理不可用免费
+                    <DropdownMenuShortcut>
+                      {unavailableFreeAccountCount}
+                    </DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="h-9 rounded-lg px-2"
+                    onClick={handleDeleteBanned}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> 一键清理封禁账号
+                    <DropdownMenuShortcut>{bannedAccountCount}</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
-              className="h-10 gap-2 rounded-xl shadow-lg shadow-primary/20"
+              className="h-10 w-30 gap-1 rounded-xl shadow-lg shadow-primary/20"
               onClick={() => refreshAllAccounts()}
               disabled={isRefreshingAllAccounts}
             >
               <RefreshCw
                 className={cn(
-                  "h-4 w-4",
+                  "h-4 w-1",
                   isRefreshingAllAccounts && "animate-spin",
                 )}
               />
@@ -559,15 +642,16 @@ export default function AccountsPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : (
-                visibleAccounts.map((account) => {
-                  const primaryWindowOnly = isPrimaryWindowOnlyUsage(
-                    account.usage,
-                  );
-                  const secondaryWindowOnly = isSecondaryWindowOnlyUsage(
-                    account.usage,
-                  );
-                  const statusAction = getAccountStatusAction(account);
+                ) : (
+                  visibleAccounts.map((account) => {
+                    const primaryWindowOnly = isPrimaryWindowOnlyUsage(
+                      account.usage,
+                    );
+                    const secondaryWindowOnly = isSecondaryWindowOnlyUsage(
+                      account.usage,
+                    );
+                    const usageBuckets = getUsageDisplayBuckets(account.usage);
+                    const statusAction = getAccountStatusAction(account);
                   const StatusActionIcon = statusAction.icon;
                   return (
                     <TableRow key={account.id} className="group">
@@ -614,18 +698,24 @@ export default function AccountsPage() {
                         <QuotaProgress
                           label="5小时"
                           remainPercent={account.primaryRemainPercent}
+                          resetsAt={usageBuckets.primaryResetsAt}
                           icon={RefreshCw}
                           tone="green"
                           emptyText={secondaryWindowOnly ? "未提供" : "--"}
+                          emptyResetText={
+                            secondaryWindowOnly ? "未提供" : "未知"
+                          }
                         />
                       </TableCell>
                       <TableCell>
                         <QuotaProgress
                           label="7天"
                           remainPercent={account.secondaryRemainPercent}
+                          resetsAt={usageBuckets.secondaryResetsAt}
                           icon={RefreshCw}
                           tone="blue"
                           emptyText={primaryWindowOnly ? "未提供" : "--"}
+                          emptyResetText={primaryWindowOnly ? "未提供" : "未知"}
                         />
                       </TableCell>
                       <TableCell>
@@ -725,7 +815,10 @@ export default function AccountsPage() {
                                 className="gap-2"
                                 onClick={() =>
                                   router.push(
-                                    `/logs?query=${encodeURIComponent(account.id)}`,
+                                    buildStaticRouteUrl(
+                                      "/logs",
+                                      `?query=${encodeURIComponent(account.id)}`,
+                                    ),
                                   )
                                 }
                               >

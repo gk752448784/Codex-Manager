@@ -37,22 +37,30 @@ A local desktop + service toolkit for managing Codex-compatible accounts, usage,
 | Build locally, package, publish, run scripts | [Build, release, and script guide](docs/release/20260310122606851_构建发布与脚本说明.md) |
 
 ## Recent Changes
-- Current latest version: `v0.1.10` (2026-03-18)
-- `v0.1.10` is a hotfix release on top of `v0.1.9`, mainly fixing Web / Docker false desktop-only prompts, account enable / disable argument errors, disabled accounts still being polled, inconsistent `refresh token 401` account states, and lingering child processes after closing the local Windows Web launcher.
-- The previous major update is still the full UI refresh and consolidation under the new `apps` frontend: the old frontend was removed, while Accounts, Platform Keys, Request Logs, Settings, the top status bar, and the sidebar were all rebuilt into a denser desktop-first layout with cleaner filtering, dialogs, and summary cards.
-- The request path was further aligned to actual Codex behavior, but only where it affects real request delivery: login / callback / workspace validation, refresh semantics, `/v1/responses` and `/v1/responses/compact` rewrites, thread anchors, `session_id` / `x-client-request-id` / `x-codex-turn-state`, request compression, and fallback diagnostics were all tightened.
-- Account routing and usability also improved: free / weekly-single-window accounts now consistently use the configured model override; preferred-account routing, failover behavior, inflight limits, and refresh-token false inactivation were all corrected, and request logs now expose both the initial account and the attempted chain.
-- Observability is much stronger: request logs now use backend pagination and backend summaries, while compact false-success bodies, HTML/challenge pages, `401 refresh` reasons, and `503 no available account` failures all produce clearer diagnostics instead of ambiguous generic errors.
-- Desktop stability and startup behavior were cleaned up as well: service startup false negatives, `/rpc` empty responses, stale usage-dialog data, first-switch lag, hydration mismatches, and misleading dev render indicators were all addressed, and the Web password setting now stays in sync between desktop and Web.
-- The release path was also normalized: the product version is now `0.1.10`, the Tauri Rust side and workflow Tauri CLI / pnpm versions are aligned again, and `release-all.yml` remains the single release entry for Windows / macOS / Linux. See [CHANGELOG.md](CHANGELOG.md) for the full history.
+- Current latest version: `v0.1.11` (2026-03-20)
+- `v0.1.11` continues the Codex-first cleanup on the main gateway path: conversation binding, automatic account-switch thread rollover, outbound `originator` / `User-Agent` / request-compression alignment, and the removal of the upstream cookie path all land in the same release.
+- Account management adds the most practical governance features from this round: `account_deactivated` and `workspace_deactivated` are now recognized as unavailable signals, the list supports a dedicated `Banned` filter, and the actions menu can clean banned accounts in one click.
+- The 5-hour and 7-day quota columns now show reset timestamps under each progress bar. Free accounts that only expose a 7-day window also render the reset time under the 7-day column instead of the wrong bucket.
+- Platform keys now support service tier overrides with `Follow Request`, `Fast`, and `Flex`. `Fast` maps to upstream `priority`, while `Flex` is forwarded as `flex`; the desktop create/edit flow now saves and round-trips these values correctly.
+- The Settings page restores the service listen-mode switch so you can choose between `localhost` and `0.0.0.0`; the `Check for Updates` button now shows loading only for manual checks.
+- Web and desktop interaction bugs were also cleaned up: refreshing non-home Web routes no longer downloads the wrong file, and clipboard actions now degrade gracefully when `navigator.clipboard.writeText` is unavailable.
+- The release path stays unified: the product version is now `0.1.11`, and the workspace, frontend package, Tauri desktop app, release-version checks, and README version notes are all kept in sync. See [CHANGELOG.md](CHANGELOG.md) for the full history.
+
+### Recent Commit Highlights
+- `cb990a1`: refine account cleanup entry points and tighten the docs surface. The accounts menu now exposes banned cleanup and count display, while README/docs navigation is trimmed to the current mainline path.
+- `42219c7`: add banned filtering and fix platform-key configuration presentation. The accounts list now exposes banned filtering and status reasons, and desktop platform-key save/round-trip behavior is fixed.
+- `07dffc0`: add platform-key service tier configuration. Platform keys now support `Follow Request / Fast / Flex` and feed the actual request rewrite path.
+- `feb759b`: restore the listen-address switch and fix the update button loading state. The Settings page now brings back `localhost / 0.0.0.0` switching and avoids false loading during silent checks.
+- `50d6a03`: fix Web refresh downloads and clipboard-copy failures. Static-route trailing-slash handling is normalized, and clipboard actions now fall back automatically when the native API is unavailable.
+- `e3a7557`: remove the upstream cookie path. The main request path no longer depends on a global upstream cookie and stays closer to official Codex behavior.
 
 ## Features
-- Account pool management: groups, tags, sorting, notes
+- Account pool management: groups, tags, sorting, notes, banned detection, and banned filtering
 - Bulk import / export: multi-file import, recursive desktop folder import for JSON, one-file-per-account export
-- Usage dashboard: 5-hour + 7-day windows, plus accounts that only expose a 7-day window
+- Usage dashboard: 5-hour + 7-day windows, plus accounts that only expose a 7-day window, with per-window reset timestamps
 - OAuth login: browser flow + manual callback parsing
-- Platform keys: create, disable, delete, model binding
-- Local service with configurable port
+- Platform keys: create, disable, delete, model binding, reasoning effort, and service tier overrides (`Follow Request` / `Fast` / `Flex`)
+- Local service with configurable port and listen address
 - Local OpenAI-compatible gateway for CLI and third-party tools
 
 ## Screenshots
@@ -70,9 +78,9 @@ A local desktop + service toolkit for managing Codex-compatible accounts, usage,
 
 ## Page Overview
 ### Desktop
-- Accounts: bulk import/export, refresh accounts and usage
-- Platform Keys: bind keys by model and inspect request logs
-- Settings: manage ports, proxy, theme, auto-update, and background behavior
+- Accounts: bulk import/export, refresh accounts and usage, plus low-quota / banned filters and reset-time display
+- Platform Keys: bind keys by model, reasoning effort, and service tier, then inspect request logs
+- Settings: manage ports, listen address, proxy, theme, auto-update, and background behavior
 
 ### Service Edition
 - `codexmanager-service`: local OpenAI-compatible gateway
@@ -120,7 +128,6 @@ A local desktop + service toolkit for managing Codex-compatible accounts, usage,
 ## Acknowledgements And References
 
 - Codex (OpenAI): this project references its implementation and source layout for request-path behavior, login semantics, and upstream compatibility <https://github.com/openai/codex>
-- CPA (CLIProxyAPI): this project references its protocol adaptation, request forwarding, and compatibility design <https://github.com/router-for-me/CLIProxyAPI>
 
 ## Recognized Community
 <p align="center">

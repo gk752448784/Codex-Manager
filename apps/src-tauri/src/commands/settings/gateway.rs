@@ -40,23 +40,6 @@ pub async fn service_gateway_manual_account_clear(
 }
 
 #[tauri::command]
-pub async fn service_gateway_header_policy_get(
-    addr: Option<String>,
-) -> Result<serde_json::Value, String> {
-    rpc_call_in_background("gateway/headerPolicy/get", addr, None).await
-}
-
-#[tauri::command]
-pub async fn service_gateway_header_policy_set(
-    addr: Option<String>,
-    cpa_no_cookie_header_mode_enabled: bool,
-) -> Result<serde_json::Value, String> {
-    let params =
-        serde_json::json!({ "cpaNoCookieHeaderModeEnabled": cpa_no_cookie_header_mode_enabled });
-    rpc_call_in_background("gateway/headerPolicy/set", addr, Some(params)).await
-}
-
-#[tauri::command]
 pub async fn service_gateway_background_tasks_get(
     addr: Option<String>,
 ) -> Result<serde_json::Value, String> {

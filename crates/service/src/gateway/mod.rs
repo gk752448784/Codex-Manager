@@ -1,5 +1,7 @@
 use crate::storage_helpers::open_storage;
 
+#[path = "routing/conversation_binding.rs"]
+mod conversation_binding;
 #[path = "routing/cooldown.rs"]
 mod cooldown;
 mod error_response;
@@ -64,7 +66,11 @@ pub(super) use request_helpers::{
 };
 #[cfg(test)]
 use request_helpers::{should_drop_incoming_header, should_drop_incoming_header_for_failover};
-use request_rewrite::{apply_request_overrides_with_prompt_cache_key, compute_upstream_url};
+use request_rewrite::{
+    apply_request_overrides_with_forced_prompt_cache_key,
+    apply_request_overrides_with_service_tier_and_forced_prompt_cache_key,
+    apply_request_overrides_with_service_tier_and_prompt_cache_key, compute_upstream_url,
+};
 #[cfg(test)]
 use upstream::config::normalize_upstream_base_url;
 use upstream::config::{
@@ -209,7 +215,7 @@ pub(crate) use runtime_config::front_proxy_max_body_bytes;
 use runtime_config::{
     account_max_inflight_limit, fresh_upstream_client, fresh_upstream_client_for_account,
     request_gate_wait_timeout, trace_body_preview_max_bytes, upstream_client,
-    upstream_client_for_account, upstream_cookie, upstream_stream_timeout, upstream_total_timeout,
+    upstream_client_for_account, upstream_stream_timeout, upstream_total_timeout,
     DEFAULT_GATEWAY_DEBUG,
 };
 use selection::collect_gateway_candidates;
@@ -253,8 +259,20 @@ pub(crate) fn current_originator() -> String {
     runtime_config::current_originator()
 }
 
+pub(crate) fn current_wire_originator() -> String {
+    runtime_config::current_wire_originator()
+}
+
+pub(crate) fn current_codex_user_agent_version() -> String {
+    runtime_config::current_codex_user_agent_version()
+}
+
 pub(crate) fn set_originator(originator: &str) -> Result<String, String> {
     runtime_config::set_originator(originator)
+}
+
+pub(crate) fn set_codex_user_agent_version(version: &str) -> Result<String, String> {
+    runtime_config::set_codex_user_agent_version(version)
 }
 
 pub(crate) fn current_residency_requirement() -> Option<String> {
@@ -277,21 +295,8 @@ pub(crate) fn set_request_compression_enabled(enabled: bool) -> bool {
     runtime_config::set_request_compression_enabled(enabled)
 }
 
-pub(crate) fn cpa_no_cookie_header_mode_enabled() -> bool {
-    runtime_config::cpa_no_cookie_header_mode_enabled()
-}
-
 pub(crate) fn strict_request_param_allowlist_enabled() -> bool {
     runtime_config::strict_request_param_allowlist_enabled()
-}
-
-pub(crate) fn set_cpa_no_cookie_header_mode(enabled: bool) -> bool {
-    runtime_config::set_cpa_no_cookie_header_mode_enabled(enabled);
-    std::env::set_var(
-        "CODEXMANAGER_CPA_NO_COOKIE_HEADER_MODE",
-        if enabled { "1" } else { "0" },
-    );
-    enabled
 }
 
 pub(crate) fn current_upstream_proxy_url() -> Option<String> {

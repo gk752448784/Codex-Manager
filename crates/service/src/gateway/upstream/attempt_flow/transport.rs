@@ -55,10 +55,6 @@ fn extract_prompt_cache_key(body: &[u8]) -> Option<String> {
         .map(str::to_string)
 }
 
-fn should_compact_upstream_headers() -> bool {
-    super::super::super::cpa_no_cookie_header_mode_enabled()
-}
-
 fn is_compact_request_path(path: &str) -> bool {
     path == "/v1/responses/compact" || path.starts_with("/v1/responses/compact?")
 }
@@ -156,38 +152,41 @@ pub(in super::super) fn send_upstream_request(
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
-    upstream_cookie: Option<&str>,
     auth_token: &str,
     account: &Account,
     strip_session_affinity: bool,
 ) -> Result<reqwest::blocking::Response, reqwest::Error> {
     let attempt_started_at = Instant::now();
-    let compact_headers_mode = should_compact_upstream_headers();
     let is_openai_api_target = super::super::super::is_openai_api_base(target_url);
-    let prompt_cache_key = if strip_session_affinity {
-        None
+    let prompt_cache_key = extract_prompt_cache_key(body.as_ref());
+    let conversation_anchor = incoming_headers
+        .conversation_id()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let is_compact_request = is_compact_request_path(request_ctx.request_path);
+    let responses_thread_anchor = if is_compact_request {
+        conversation_anchor.clone()
     } else {
-        extract_prompt_cache_key(body.as_ref())
-    };
-    let compact_conversation_anchor = if strip_session_affinity {
-        None
-    } else {
-        incoming_headers
-            .conversation_id()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string)
+        prompt_cache_key
+            .clone()
+            .or_else(|| conversation_anchor.clone())
     };
     let original_incoming_session_id = incoming_headers.session_id();
     let mut incoming_session_id = original_incoming_session_id;
-    let incoming_client_request_id = incoming_headers.client_request_id();
+    let mut incoming_client_request_id = incoming_headers.client_request_id();
     let mut incoming_turn_state = incoming_headers.turn_state();
-    if prompt_cache_key.is_some() {
+    if !is_compact_request {
+        incoming_client_request_id = responses_thread_anchor
+            .as_deref()
+            .or(incoming_client_request_id);
+    }
+    if responses_thread_anchor.is_some() {
         // 中文注释：当请求已携带线程锚点（prompt_cache_key）时，优先让上游会话头也绑定到
         // 同一锚点，避免继续透传旧 session_id 造成线程漂移或跨账号粘性。
         incoming_session_id = None;
     }
-    if is_compact_request_path(request_ctx.request_path) && compact_conversation_anchor.is_some() {
+    if is_compact_request && conversation_anchor.is_some() {
         // 中文注释：官方 compact 客户端会直接把 conversation_id 映射成 session_id。
         // compact 请求没有 prompt_cache_key，因此这里显式让会话头退回到 conversation 锚点。
         incoming_session_id = None;
@@ -209,22 +208,13 @@ pub(in super::super) fn send_upstream_request(
             incoming_turn_state = None;
         }
     }
-    let mut derived_session_id = if !strip_session_affinity && incoming_session_id.is_none() {
-        // 中文注释：这里继续保留“基于账号/密钥的稳定 session”兼容策略，
-        // 但不再把 remote 地址混进会话锚点，避免同一客户端仅因源地址变化就得到不同 session_id，
-        // 让主路径更接近官方可见的线程锚点语义。
-        super::super::header_profile::derive_sticky_session_id_from_headers(incoming_headers)
-    } else {
-        None
-    };
-    // 中文注释：当 prompt_cache_key 存在时，用它对齐请求会话锚点。
-    // 官方可见线程锚点仍以 prompt_cache_key + session_id 为主，不额外默认补 x-client-request-id。
-    if !strip_session_affinity {
-        if let Some(cache_key) = prompt_cache_key.as_ref() {
-            derived_session_id = Some(cache_key.clone());
-        }
+    let mut derived_session_id = None;
+    // 中文注释：Codex HTTP /responses 会把会话锚点同时写进 x-client-request-id 和 session_id。
+    // 这里无论是否正在切线程，只要当前尝试已经解析出新的线程锚点，就优先用它覆盖会话头。
+    if let Some(thread_anchor) = responses_thread_anchor.as_ref() {
+        derived_session_id = Some(thread_anchor.clone());
     }
-    let compact_fallback_session_id = compact_conversation_anchor
+    let compact_fallback_session_id = conversation_anchor
         .as_deref()
         .or(derived_session_id.as_deref());
     let account_id = account
@@ -232,17 +222,11 @@ pub(in super::super) fn send_upstream_request(
         .as_deref()
         .or_else(|| account.workspace_id.as_deref());
     let include_account_id = !is_openai_api_target;
-    let forwarded_upstream_cookie = if is_openai_api_target {
-        None
-    } else {
-        upstream_cookie
-    };
     let mut upstream_headers = if is_compact_request_path(request_ctx.request_path) {
         let header_input = super::super::header_profile::CodexCompactUpstreamHeaderInput {
             auth_token,
             account_id,
             include_account_id,
-            upstream_cookie: forwarded_upstream_cookie,
             incoming_session_id,
             incoming_subagent: incoming_headers.subagent(),
             fallback_session_id: compact_fallback_session_id,
@@ -255,7 +239,6 @@ pub(in super::super) fn send_upstream_request(
             auth_token,
             account_id,
             include_account_id,
-            upstream_cookie: forwarded_upstream_cookie,
             incoming_session_id,
             incoming_client_request_id,
             incoming_subagent: incoming_headers.subagent(),
@@ -263,7 +246,7 @@ pub(in super::super) fn send_upstream_request(
             incoming_turn_metadata: incoming_headers.turn_metadata(),
             fallback_session_id: derived_session_id.as_deref(),
             incoming_turn_state,
-            include_turn_state: !compact_headers_mode,
+            include_turn_state: true,
             strip_session_affinity,
             is_stream,
             has_body: !body.is_empty(),

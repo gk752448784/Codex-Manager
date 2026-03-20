@@ -23,7 +23,7 @@ pub(super) fn ensure_instructions(path: &str, obj: &mut serde_json::Map<String, 
     if obj.contains_key("instructions") {
         return false;
     }
-    // 中文注释：对齐 CPA 的 Codex 请求构造：缺失 instructions 时补空字符串，
+    // 中文注释：对齐 Codex 请求构造：缺失 instructions 时补空字符串，
     // 避免部分上游对字段存在性更严格导致的 400。
     obj.insert("instructions".to_string(), Value::String(String::new()));
     true
@@ -70,7 +70,7 @@ pub(super) fn ensure_stream_true(path: &str, obj: &mut serde_json::Map<String, V
     if stream.as_bool() == Some(true) {
         return false;
     }
-    // 中文注释：对齐 CPA 的 Codex executor：/responses 固定走上游 SSE，
+    // 中文注释：对齐 Codex executor：/responses 固定走上游 SSE，
     // 后续由网关按下游协议再聚合/透传，避免 backend-api/codex 在非流式形态返回 400。
     *stream = Value::Bool(true);
     true
@@ -106,6 +106,7 @@ pub(super) fn ensure_prompt_cache_key(
     path: &str,
     obj: &mut serde_json::Map<String, Value>,
     prompt_cache_key: Option<&str>,
+    force_override: bool,
 ) -> bool {
     if !is_standard_responses_path(path) {
         return false;
@@ -118,7 +119,12 @@ pub(super) fn ensure_prompt_cache_key(
     };
 
     match obj.get("prompt_cache_key") {
-        Some(Value::String(existing)) if !existing.trim().is_empty() => return false,
+        Some(Value::String(existing)) if !force_override && !existing.trim().is_empty() => {
+            return false;
+        }
+        Some(Value::String(existing)) if force_override && existing.trim() == prompt_cache_key => {
+            return false;
+        }
         Some(_) => {}
         None => {}
     }

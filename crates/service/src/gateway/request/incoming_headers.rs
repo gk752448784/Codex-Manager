@@ -141,6 +141,27 @@ impl IncomingHeaderSnapshot {
     pub(crate) fn conversation_id(&self) -> Option<&str> {
         self.conversation_id.as_deref()
     }
+
+    pub(crate) fn with_conversation_id_override(&self, conversation_id: Option<&str>) -> Self {
+        self.with_thread_affinity_override(conversation_id, false)
+    }
+
+    pub(crate) fn with_thread_affinity_override(
+        &self,
+        conversation_id: Option<&str>,
+        reset_session_affinity: bool,
+    ) -> Self {
+        let mut next = self.clone();
+        next.conversation_id = conversation_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        if reset_session_affinity {
+            next.session_id = None;
+            next.turn_state = None;
+        }
+        next
+    }
 }
 
 fn strict_bearer_token(value: &str) -> Option<String> {

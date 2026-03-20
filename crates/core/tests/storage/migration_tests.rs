@@ -183,6 +183,24 @@ fn init_tracks_schema_migrations_and_is_idempotent() {
         )
         .expect("count 033 migration");
     assert_eq!(applied_033, 1);
+    let applied_034: i64 = storage
+        .conn
+        .query_row(
+            "SELECT COUNT(1) FROM schema_migrations WHERE version = '034_conversation_bindings'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count 034 migration");
+    assert_eq!(applied_034, 1);
+    let applied_035: i64 = storage
+        .conn
+        .query_row(
+            "SELECT COUNT(1) FROM schema_migrations WHERE version = '035_api_key_profiles_service_tier'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count 035 migration");
+    assert_eq!(applied_035, 1);
 
     assert!(!storage
         .has_column("accounts", "note")
@@ -226,6 +244,15 @@ fn init_tracks_schema_migrations_and_is_idempotent() {
     assert!(storage
         .has_column("login_sessions", "workspace_id")
         .expect("check login_sessions.workspace_id"));
+    assert!(storage
+        .has_column("conversation_bindings", "thread_anchor")
+        .expect("check conversation_bindings.thread_anchor"));
+    assert!(storage
+        .has_column("conversation_bindings", "last_switch_reason")
+        .expect("check conversation_bindings.last_switch_reason"));
+    assert!(storage
+        .has_column("api_key_profiles", "service_tier")
+        .expect("check api_key_profiles.service_tier"));
     assert!(!storage
         .has_column("request_logs", "input_tokens")
         .expect("check request_logs.input_tokens"));
@@ -410,11 +437,26 @@ fn api_key_profile_migration_backfills_existing_keys() {
             |s| s.ensure_api_key_profiles_table(),
         )
         .expect("apply 015 migration with fallback");
+    storage
+        .apply_sql_or_compat_migration(
+            "035_api_key_profiles_service_tier",
+            include_str!("../../migrations/035_api_key_profiles_service_tier.sql"),
+            |s| s.ensure_api_key_service_tier_column(),
+        )
+        .expect("apply 035 migration with fallback");
 
-    let profile_row: (String, String, String, String, Option<String>, Option<String>) = storage
+    let profile_row: (
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = storage
         .conn
         .query_row(
-            "SELECT client_type, protocol_type, auth_scheme, default_model, reasoning_effort, upstream_base_url
+            "SELECT client_type, protocol_type, auth_scheme, default_model, reasoning_effort, upstream_base_url, service_tier
              FROM api_key_profiles
              WHERE key_id = 'key-1'",
             [],
@@ -426,6 +468,7 @@ fn api_key_profile_migration_backfills_existing_keys() {
                     row.get(3)?,
                     row.get(4)?,
                     row.get(5)?,
+                    row.get(6)?,
                 ))
             },
         )
@@ -437,6 +480,7 @@ fn api_key_profile_migration_backfills_existing_keys() {
     assert_eq!(profile_row.3, "gpt-5");
     assert_eq!(profile_row.4.as_deref(), Some("low"));
     assert_eq!(profile_row.5, None);
+    assert_eq!(profile_row.6, None);
 }
 
 #[test]
@@ -496,6 +540,38 @@ fn accounts_sort_index_migration_adds_sort_updated_at_index() {
     assert!(index_sql.contains("accounts"));
     assert!(index_sql.contains("sort ASC"));
     assert!(index_sql.contains("updated_at DESC"));
+}
+
+#[test]
+fn conversation_bindings_migration_adds_indexes() {
+    let storage = Storage::open_in_memory().expect("open in memory");
+    storage.init().expect("init schema");
+
+    let account_index_sql: String = storage
+        .conn
+        .query_row(
+            "SELECT sql
+             FROM sqlite_master
+             WHERE type = 'index' AND name = 'idx_conversation_bindings_account_id'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("load account index definition");
+    assert!(account_index_sql.contains("conversation_bindings"));
+    assert!(account_index_sql.contains("account_id"));
+
+    let last_used_index_sql: String = storage
+        .conn
+        .query_row(
+            "SELECT sql
+             FROM sqlite_master
+             WHERE type = 'index' AND name = 'idx_conversation_bindings_last_used_at'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("load last_used index definition");
+    assert!(last_used_index_sql.contains("conversation_bindings"));
+    assert!(last_used_index_sql.contains("last_used_at DESC"));
 }
 
 #[test]

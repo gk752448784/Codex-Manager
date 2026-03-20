@@ -27,10 +27,10 @@ fn reset_runtime_defaults() {
         "freeAccountMaxModel": "gpt-5.2",
         "requestCompressionEnabled": true,
         "gatewayOriginator": "codex_cli_rs",
+        "gatewayUserAgentVersion": "0.101.0",
         "gatewayResidencyRequirement": "",
         "appearancePreset": "classic",
         "lightweightModeOnCloseToTray": false,
-        "cpaNoCookieHeaderModeEnabled": false,
         "upstreamProxyUrl": "",
         "upstreamStreamTimeoutMs": 1800000,
         "sseKeepaliveIntervalMs": 15000,
@@ -182,8 +182,8 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
             "freeAccountMaxModel": "gpt-5.3-codex",
             "requestCompressionEnabled": false,
             "gatewayOriginator": "codex_cli_rs_test",
+            "gatewayUserAgentVersion": "0.101.2",
             "gatewayResidencyRequirement": "us",
-            "cpaNoCookieHeaderModeEnabled": true,
             "upstreamProxyUrl": "http://127.0.0.1:7890",
             "upstreamStreamTimeoutMs": 654321,
             "sseKeepaliveIntervalMs": 17000,
@@ -276,6 +276,12 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
         );
         assert_eq!(
             snapshot
+                .get("gatewayUserAgentVersion")
+                .and_then(|value| value.as_str()),
+            Some("0.101.2")
+        );
+        assert_eq!(
+            snapshot
                 .get("gatewayResidencyRequirement")
                 .and_then(|value| value.as_str()),
             Some("us")
@@ -326,6 +332,12 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
                 .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_ORIGINATOR_KEY)
                 .expect("read gateway originator"),
             Some("codex_cli_rs_test".to_string())
+        );
+        assert_eq!(
+            storage
+                .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY)
+                .expect("read gateway user agent version"),
+            Some("0.101.2".to_string())
         );
         assert_eq!(
             storage
@@ -422,18 +434,18 @@ fn sync_runtime_settings_from_storage_applies_saved_runtime_values() {
             .expect("save gateway originator");
         storage
             .set_app_setting(
+                codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
+                "0.101.3",
+                now_ts(),
+            )
+            .expect("save gateway user agent version");
+        storage
+            .set_app_setting(
                 codexmanager_service::APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY,
                 "us",
                 now_ts(),
             )
             .expect("save gateway residency requirement");
-        storage
-            .set_app_setting(
-                codexmanager_service::APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY,
-                "1",
-                now_ts(),
-            )
-            .expect("save cpa mode");
         storage
             .set_app_setting(
                 codexmanager_service::APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
@@ -518,15 +530,15 @@ fn sync_runtime_settings_from_storage_applies_saved_runtime_values() {
         );
         assert_eq!(
             snapshot
-                .get("gatewayResidencyRequirement")
+                .get("gatewayUserAgentVersion")
                 .and_then(|value| value.as_str()),
-            Some("us")
+            Some("0.101.3")
         );
         assert_eq!(
             snapshot
-                .get("cpaNoCookieHeaderModeEnabled")
-                .and_then(|value| value.as_bool()),
-            Some(true)
+                .get("gatewayResidencyRequirement")
+                .and_then(|value| value.as_str()),
+            Some("us")
         );
         assert_eq!(
             snapshot
@@ -587,8 +599,8 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
             codexmanager_service::APP_SETTING_GATEWAY_FREE_ACCOUNT_MAX_MODEL_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_REQUEST_COMPRESSION_ENABLED_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_ORIGINATOR_KEY,
+            codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY,
-            codexmanager_service::APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY,
             codexmanager_service::APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY,
@@ -605,7 +617,6 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
             ("CODEXMANAGER_ENABLE_REQUEST_COMPRESSION", Some("0")),
             ("CODEXMANAGER_ORIGINATOR", Some("codex_cli_rs_env")),
             ("CODEXMANAGER_RESIDENCY_REQUIREMENT", Some("us")),
-            ("CODEXMANAGER_CPA_NO_COOKIE_HEADER_MODE", Some("1")),
             (
                 "CODEXMANAGER_UPSTREAM_PROXY_URL",
                 Some("http://127.0.0.1:7899"),
@@ -663,15 +674,15 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
         );
         assert_eq!(
             snapshot
-                .get("gatewayResidencyRequirement")
+                .get("gatewayUserAgentVersion")
                 .and_then(|value| value.as_str()),
-            Some("us")
+            Some("0.101.0")
         );
         assert_eq!(
             snapshot
-                .get("cpaNoCookieHeaderModeEnabled")
-                .and_then(|value| value.as_bool()),
-            Some(true)
+                .get("gatewayResidencyRequirement")
+                .and_then(|value| value.as_str()),
+            Some("us")
         );
         assert_eq!(
             snapshot
@@ -763,6 +774,12 @@ fn app_settings_get_loads_env_backed_dedicated_settings_when_storage_missing() {
         );
         assert_eq!(
             storage
+                .get_app_setting(codexmanager_service::APP_SETTING_GATEWAY_USER_AGENT_VERSION_KEY)
+                .expect("read gateway user agent version"),
+            Some("0.101.0".to_string())
+        );
+        assert_eq!(
+            storage
                 .get_app_setting(
                     codexmanager_service::APP_SETTING_GATEWAY_RESIDENCY_REQUIREMENT_KEY
                 )
@@ -794,7 +811,7 @@ fn app_settings_set_persists_env_overrides_and_exposes_catalog() {
         let snapshot = codexmanager_service::app_settings_set(Some(&json!({
             "envOverrides": {
                 "CODEXMANAGER_UPSTREAM_TOTAL_TIMEOUT_MS": "321000",
-                "CODEXMANAGER_UPSTREAM_COOKIE": "cf_clearance=test"
+                "CODEXMANAGER_WEB_ROOT": "D:/tmp/web"
             }
         })))
         .expect("save env overrides");
@@ -805,13 +822,6 @@ fn app_settings_set_persists_env_overrides_and_exposes_catalog() {
                 .and_then(|value| value.get("CODEXMANAGER_UPSTREAM_TOTAL_TIMEOUT_MS"))
                 .and_then(|value| value.as_str()),
             Some("321000")
-        );
-        assert_eq!(
-            snapshot
-                .get("envOverrides")
-                .and_then(|value| value.get("CODEXMANAGER_UPSTREAM_COOKIE"))
-                .and_then(|value| value.as_str()),
-            Some("cf_clearance=test")
         );
         assert_eq!(
             snapshot
@@ -873,9 +883,9 @@ fn app_settings_set_persists_env_overrides_and_exposes_catalog() {
         );
         assert_eq!(
             stored
-                .get("CODEXMANAGER_UPSTREAM_COOKIE")
+                .get("CODEXMANAGER_WEB_ROOT")
                 .and_then(|value| value.as_str()),
-            Some("cf_clearance=test")
+            Some("D:/tmp/web")
         );
         assert_eq!(
             stored
@@ -1018,16 +1028,16 @@ fn app_settings_set_env_overrides_patch_preserves_other_values_and_reset_to_defa
         let first = codexmanager_service::app_settings_set(Some(&json!({
             "envOverrides": {
                 "CODEXMANAGER_UPSTREAM_TOTAL_TIMEOUT_MS": "321000",
-                "CODEXMANAGER_UPSTREAM_COOKIE": "cf_clearance=test"
+                "CODEXMANAGER_WEB_ROOT": "D:/tmp/web"
             }
         })))
         .expect("save first env overrides");
         assert_eq!(
             first
                 .get("envOverrides")
-                .and_then(|value| value.get("CODEXMANAGER_UPSTREAM_COOKIE"))
+                .and_then(|value| value.get("CODEXMANAGER_WEB_ROOT"))
                 .and_then(|value| value.as_str()),
-            Some("cf_clearance=test")
+            Some("D:/tmp/web")
         );
 
         let second = codexmanager_service::app_settings_set(Some(&json!({
@@ -1047,9 +1057,9 @@ fn app_settings_set_env_overrides_patch_preserves_other_values_and_reset_to_defa
         assert_eq!(
             second
                 .get("envOverrides")
-                .and_then(|value| value.get("CODEXMANAGER_UPSTREAM_COOKIE"))
+                .and_then(|value| value.get("CODEXMANAGER_WEB_ROOT"))
                 .and_then(|value| value.as_str()),
-            Some("cf_clearance=test")
+            Some("D:/tmp/web")
         );
         assert_eq!(
             std::env::var("CODEXMANAGER_UPSTREAM_TOTAL_TIMEOUT_MS")
@@ -1058,10 +1068,8 @@ fn app_settings_set_env_overrides_patch_preserves_other_values_and_reset_to_defa
             Some("120000")
         );
         assert_eq!(
-            std::env::var("CODEXMANAGER_UPSTREAM_COOKIE")
-                .ok()
-                .as_deref(),
-            Some("cf_clearance=test")
+            std::env::var("CODEXMANAGER_WEB_ROOT").ok().as_deref(),
+            Some("D:/tmp/web")
         );
     });
 }

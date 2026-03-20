@@ -2,7 +2,10 @@ use super::{
     mark_usage_unreachable_if_needed, record_usage_refresh_failure, should_retry_with_refresh,
 };
 use crate::account_availability::Availability;
-use crate::account_status::mark_account_unavailable_for_refresh_token_error;
+use crate::account_status::{
+    deactivation_reason_from_message, mark_account_unavailable_for_deactivation_error,
+    mark_account_unavailable_for_refresh_token_error,
+};
 use crate::usage_snapshot_store::apply_status_from_snapshot;
 use codexmanager_core::storage::{now_ts, Account, Storage, UsageSnapshotRecord};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -363,6 +366,85 @@ fn refresh_token_unknown_401_marks_account_unavailable() {
         .expect("find")
         .expect("exists");
     assert_eq!(unavailable.status, "unavailable");
+}
+
+#[test]
+fn deactivation_reason_detects_workspace_and_account_scope() {
+    assert_eq!(
+        deactivation_reason_from_message(
+            "unexpected status 402 Payment Required: detail: code deactivated workspace"
+        ),
+        Some("workspace_deactivated")
+    );
+    assert_eq!(
+        deactivation_reason_from_message("auth error: account_deactivated"),
+        Some("account_deactivated")
+    );
+    assert_eq!(
+        deactivation_reason_from_message("usage endpoint status 429"),
+        None
+    );
+}
+
+#[test]
+fn deactivation_error_marks_account_unavailable() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let account = Account {
+        id: "acc-workspace-deactivated".to_string(),
+        label: "main".to_string(),
+        issuer: "issuer".to_string(),
+        chatgpt_account_id: None,
+        workspace_id: None,
+        group_name: None,
+        sort: 0,
+        status: "active".to_string(),
+        created_at: now_ts(),
+        updated_at: now_ts(),
+    };
+    storage.insert_account(&account).expect("insert");
+
+    assert!(mark_account_unavailable_for_deactivation_error(
+        &storage,
+        "acc-workspace-deactivated",
+        "unexpected status 402 Payment Required: detail: code deactivated workspace"
+    ));
+    let unavailable = storage
+        .find_account_by_id("acc-workspace-deactivated")
+        .expect("find")
+        .expect("exists");
+    assert_eq!(unavailable.status, "unavailable");
+}
+
+#[test]
+fn deactivation_error_preserves_manual_disabled_status() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    storage
+        .insert_account(&Account {
+            id: "acc-account-deactivated-disabled".to_string(),
+            label: "main".to_string(),
+            issuer: "issuer".to_string(),
+            chatgpt_account_id: None,
+            workspace_id: None,
+            group_name: None,
+            sort: 0,
+            status: "disabled".to_string(),
+            created_at: now_ts(),
+            updated_at: now_ts(),
+        })
+        .expect("insert");
+
+    assert!(!mark_account_unavailable_for_deactivation_error(
+        &storage,
+        "acc-account-deactivated-disabled",
+        "account_deactivated"
+    ));
+    let disabled = storage
+        .find_account_by_id("acc-account-deactivated-disabled")
+        .expect("find")
+        .expect("exists");
+    assert_eq!(disabled.status, "disabled");
 }
 
 #[test]

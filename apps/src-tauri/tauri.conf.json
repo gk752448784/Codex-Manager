@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CodexManager",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "identifier": "com.codexmanager.desktop",
   "build": {
     "beforeDevCommand": "node -e \"const fs=require('node:fs');const path=require('node:path');const cp=require('node:child_process');const script=process.argv[1];const candidates=[process.cwd(),path.resolve(process.cwd(),'apps'),path.resolve(process.cwd(),'..')];const appsDir=candidates.find((dir)=>fs.existsSync(path.join(dir,'package.json'))&&fs.existsSync(path.join(dir,'src-tauri','tauri.conf.json')));if(!appsDir){console.error('apps/package.json not found from cwd: '+process.cwd());process.exit(1);}const result=cp.spawnSync('corepack',['pnpm','--dir',appsDir,'run',script],{stdio:'inherit',shell:process.platform==='win32'});process.exit(result.status??1);\" dev:desktop",

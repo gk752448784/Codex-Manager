@@ -963,6 +963,7 @@ fn storage_api_keys_include_profile_fields() {
             name: Some("main".to_string()),
             model_slug: Some("claude-sonnet-4".to_string()),
             reasoning_effort: Some("medium".to_string()),
+            service_tier: Some("fast".to_string()),
             client_type: "claude_code".to_string(),
             protocol_type: "anthropic_native".to_string(),
             auth_scheme: "x_api_key".to_string(),
@@ -985,6 +986,7 @@ fn storage_api_keys_include_profile_fields() {
     assert_eq!(key.protocol_type, "anthropic_native");
     assert_eq!(key.auth_scheme, "x_api_key");
     assert_eq!(key.model_slug.as_deref(), Some("claude-sonnet-4"));
+    assert_eq!(key.service_tier.as_deref(), Some("fast"));
 }
 
 #[test]
@@ -998,6 +1000,7 @@ fn storage_can_roundtrip_api_key_secret() {
             name: Some("secret".to_string()),
             model_slug: None,
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),

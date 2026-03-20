@@ -37,6 +37,7 @@ import {
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { accountClient } from "@/lib/api/account-client";
 import { useAppStore } from "@/lib/store/useAppStore";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { formatCompactNumber } from "@/lib/utils/usage";
 
 export default function ApiKeysPage() {
@@ -124,7 +125,7 @@ export default function ApiKeysPage() {
   const copyToClipboard = async (id: string) => {
     try {
       const secret = await ensureSecretLoaded(id);
-      await navigator.clipboard.writeText(secret);
+      await copyTextToClipboard(secret);
       toast.success("已复制到剪贴板");
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : String(error));

@@ -54,6 +54,7 @@ fn gateway_openai_stream_logs_cached_and_reasoning_tokens() {
             name: Some("openai-stream-usage".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -121,10 +122,6 @@ fn gateway_openai_api_base_suppresses_cookie_and_account_headers() {
     let db_path: PathBuf = dir.join("codexmanager.db");
 
     let _db_guard = EnvGuard::set("CODEXMANAGER_DB_PATH", db_path.to_string_lossy().as_ref());
-    let _cookie_guard = EnvGuard::set(
-        "CODEXMANAGER_UPSTREAM_COOKIE",
-        "cf_clearance=should_not_forward",
-    );
 
     let upstream_response = serde_json::json!({
         "id": "resp_openai_api_base",
@@ -178,6 +175,7 @@ fn gateway_openai_api_base_suppresses_cookie_and_account_headers() {
             name: Some("openai-api-base".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -277,6 +275,7 @@ fn gateway_openai_stream_usage_with_plain_content_type() {
             name: Some("openai-stream-plain-ct".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -391,6 +390,7 @@ fn gateway_openai_non_stream_sse_with_plain_content_type_is_collapsed_to_json() 
             name: Some("openai-non-stream-plain-ct".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -492,6 +492,7 @@ fn gateway_openai_non_stream_without_usage_keeps_tokens_null() {
             name: Some("openai-no-usage".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -618,6 +619,7 @@ fn gateway_openai_compact_route_aligns_with_codex_remote_compact_request() {
             name: Some("openai-compact".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -780,6 +782,7 @@ fn gateway_openai_compact_invalid_success_body_is_mapped_to_502() {
             name: Some("openai-compact-bad".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -926,6 +929,7 @@ fn gateway_openai_compact_uses_conversation_id_as_session_anchor() {
             name: Some("openai-compact-conversation-anchor".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1041,6 +1045,7 @@ fn gateway_openai_compact_html_non_success_is_mapped_to_structured_403() {
             name: Some("openai-compact-html".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1201,6 +1206,7 @@ fn gateway_openai_html_non_success_logs_debug_ids_for_responses() {
             name: Some("openai-html-non-success".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: Some("high".to_string()),
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1293,6 +1299,7 @@ fn gateway_models_returns_cached_without_upstream() {
             name: Some("models-cache".to_string()),
             model_slug: None,
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1491,6 +1498,7 @@ fn gateway_chatgpt_primary_preserves_turn_state_headers_without_openai_fallback(
             name: Some("chatgpt-primary-turn-state".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1536,7 +1544,7 @@ fn gateway_chatgpt_primary_preserves_turn_state_headers_without_openai_fallback(
     );
     assert_eq!(
         first.headers.get("x-client-request-id").map(String::as_str),
-        Some("req_dummy")
+        Some("conv_dummy")
     );
     assert_eq!(
         first.headers.get("x-openai-subagent").map(String::as_str),
@@ -1609,6 +1617,7 @@ fn gateway_chatgpt_primary_drops_turn_state_without_thread_anchor() {
             name: Some("chatgpt-primary-turn-state-no-anchor".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1709,6 +1718,7 @@ fn gateway_chatgpt_primary_uses_prompt_cache_anchor_for_session_without_inventin
             name: Some("chatgpt-primary-prompt-cache-anchor".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1747,7 +1757,13 @@ fn gateway_chatgpt_primary_uses_prompt_cache_anchor_for_session_without_inventin
         captured.headers.get("session_id").map(String::as_str),
         Some("conv_anchor_primary")
     );
-    assert!(!captured.headers.contains_key("x-client-request-id"));
+    assert_eq!(
+        captured
+            .headers
+            .get("x-client-request-id")
+            .map(String::as_str),
+        Some("conv_anchor_primary")
+    );
     assert!(!captured.headers.contains_key("x-codex-turn-state"));
     assert!(!captured.headers.contains_key("conversation_id"));
 
@@ -1834,6 +1850,7 @@ fn gateway_unauthorized_refreshes_access_token_and_retries_once() {
             name: Some("openai-unauthorized-refresh".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),
@@ -1994,6 +2011,7 @@ fn gateway_invalid_refresh_token_marks_first_account_unavailable_and_fails_over(
             name: Some("openai-invalid-refresh-failover".to_string()),
             model_slug: Some("gpt-5.3-codex".to_string()),
             reasoning_effort: None,
+            service_tier: None,
             client_type: "codex".to_string(),
             protocol_type: "openai_compat".to_string(),
             auth_scheme: "authorization_bearer".to_string(),

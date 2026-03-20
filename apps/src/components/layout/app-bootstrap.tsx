@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AlertCircle, Play, RefreshCw } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import {
   isExpectedInitializeResult,
   normalizeServiceAddr,
 } from "@/lib/utils/service";
+import { getCanonicalStaticRouteUrl } from "@/lib/utils/static-routes";
 
 const DEFAULT_SERVICE_ADDR = "localhost:48760";
 const PRIMARY_PAGE_WARMUP_STALE_TIME = 30_000;
@@ -37,6 +38,7 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
   const { setServiceStatus, setAppSettings, serviceStatus } = useAppStore();
   const { setTheme } = useTheme();
   const queryClient = useQueryClient();
+  const pathname = usePathname();
   const router = useRouter();
   const [isInitializing, setIsInitializing] = useState(true);
   const hasInitializedOnce = useRef(false);
@@ -459,6 +461,19 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => warmupDevRouteTransitions(), [warmupDevRouteTransitions]);
+
+  useEffect(() => {
+    if (isTauriRuntime() || typeof window === "undefined") {
+      return;
+    }
+
+    const canonicalUrl = getCanonicalStaticRouteUrl();
+    if (!canonicalUrl) {
+      return;
+    }
+
+    window.history.replaceState(window.history.state, "", canonicalUrl);
+  }, [pathname]);
 
   const showLoading = isInitializing && !hasInitializedOnce.current;
   const showError = !!error && !hasInitializedOnce.current;

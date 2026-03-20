@@ -60,6 +60,7 @@ pub(super) fn finalize_terminal_candidate(
     model_for_log: Option<&str>,
     attempted_account_ids: Option<&[String]>,
 ) -> Result<(), String> {
+    let _ = context.mark_account_unavailable_for_gateway_error(account_id, &message);
     context.log_final_result_with_model(
         Some(account_id),
         last_attempt_url,
@@ -172,6 +173,10 @@ pub(super) fn finalize_upstream_response(
             super::super::super::CooldownReason::Network,
         );
         super::super::super::record_route_quality(account_id, 502);
+    }
+
+    if let Some(error) = final_error.as_deref() {
+        let _ = context.mark_account_unavailable_for_gateway_error(account_id, error);
     }
 
     let usage = bridge.usage;

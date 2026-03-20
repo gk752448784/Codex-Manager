@@ -99,8 +99,6 @@ const WEB_COMMAND_MAP: Record<string, WebCommandDescriptor> = {
   service_gateway_manual_account_clear: {
     rpcMethod: "gateway/manualAccount/clear",
   },
-  service_gateway_header_policy_get: { rpcMethod: "gateway/headerPolicy/get" },
-  service_gateway_header_policy_set: { rpcMethod: "gateway/headerPolicy/set" },
   service_gateway_background_tasks_get: {
     rpcMethod: "gateway/backgroundTasks/get",
   },

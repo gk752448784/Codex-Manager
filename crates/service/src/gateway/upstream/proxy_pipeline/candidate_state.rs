@@ -14,6 +14,26 @@ pub(in super::super) struct CandidateExecutionState {
 }
 
 impl CandidateExecutionState {
+    fn rewrite_cache_key(
+        model_override: Option<&str>,
+        prompt_cache_key: Option<&str>,
+    ) -> Option<String> {
+        let normalized_model = model_override
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let normalized_prompt_cache_key = prompt_cache_key
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        if normalized_model.is_none() && normalized_prompt_cache_key.is_none() {
+            return None;
+        }
+        Some(format!(
+            "model={}|thread={}",
+            normalized_model.unwrap_or("-"),
+            normalized_prompt_cache_key.unwrap_or("-")
+        ))
+    }
+
     pub(in super::super) fn strip_session_affinity(
         &mut self,
         account: &Account,
@@ -51,25 +71,23 @@ impl CandidateExecutionState {
         body: &Bytes,
         setup: &UpstreamRequestSetup,
         model_override: Option<&str>,
+        prompt_cache_key: Option<&str>,
     ) -> Bytes {
-        let Some(model_override) = model_override
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        else {
+        let Some(cache_key) = Self::rewrite_cache_key(model_override, prompt_cache_key) else {
             return body.clone();
         };
 
         self.rewritten_bodies
-            .entry(model_override.to_string())
+            .entry(cache_key)
             .or_insert_with(|| {
                 Bytes::from(
-                    super::super::super::apply_request_overrides_with_prompt_cache_key(
+                    super::super::super::apply_request_overrides_with_forced_prompt_cache_key(
                         path,
                         body.to_vec(),
-                        Some(model_override),
+                        model_override,
                         None,
                         Some(setup.upstream_base.as_str()),
-                        None,
+                        prompt_cache_key,
                     ),
                 )
             })
@@ -83,16 +101,15 @@ impl CandidateExecutionState {
         strip_session_affinity: bool,
         setup: &UpstreamRequestSetup,
         model_override: Option<&str>,
+        prompt_cache_key: Option<&str>,
     ) -> Bytes {
-        let rewritten = self.rewrite_body_for_model(path, body, setup, model_override);
+        let rewritten =
+            self.rewrite_body_for_model(path, body, setup, model_override, prompt_cache_key);
         if strip_session_affinity && setup.has_body_encrypted_content {
-            if let Some(model_override) = model_override
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-            {
+            if let Some(cache_key) = Self::rewrite_cache_key(model_override, prompt_cache_key) {
                 return self
                     .stripped_rewritten_bodies
-                    .entry(model_override.to_string())
+                    .entry(cache_key)
                     .or_insert_with(|| {
                         strip_encrypted_content_from_body(rewritten.as_ref())
                             .map(Bytes::from)
@@ -120,16 +137,15 @@ impl CandidateExecutionState {
         body: &Bytes,
         setup: &UpstreamRequestSetup,
         model_override: Option<&str>,
+        prompt_cache_key: Option<&str>,
     ) -> Bytes {
-        let rewritten = self.rewrite_body_for_model(path, body, setup, model_override);
+        let rewritten =
+            self.rewrite_body_for_model(path, body, setup, model_override, prompt_cache_key);
         if setup.has_body_encrypted_content {
-            if let Some(model_override) = model_override
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-            {
+            if let Some(cache_key) = Self::rewrite_cache_key(model_override, prompt_cache_key) {
                 return self
                     .stripped_rewritten_bodies
-                    .entry(model_override.to_string())
+                    .entry(cache_key)
                     .or_insert_with(|| {
                         strip_encrypted_content_from_body(rewritten.as_ref())
                             .map(Bytes::from)
@@ -166,22 +182,35 @@ mod tests {
             upstream_fallback_base: None,
             url: "https://chatgpt.com/backend-api/codex/responses".to_string(),
             url_alt: None,
-            upstream_cookie: None,
             candidate_count: 1,
             account_max_inflight: 1,
             anthropic_has_prompt_cache_key: false,
             has_sticky_fallback_session: false,
             has_sticky_fallback_conversation: false,
             has_body_encrypted_content: false,
+            conversation_routing: None,
         };
 
-        let actual = state.body_for_attempt("/v1/responses", &body, false, &setup, Some("gpt-5.2"));
+        let actual = state.body_for_attempt(
+            "/v1/responses",
+            &body,
+            false,
+            &setup,
+            Some("gpt-5.2"),
+            Some("thread-2"),
+        );
         let value: serde_json::Value =
             serde_json::from_slice(actual.as_ref()).expect("parse rewritten body");
 
         assert_eq!(
             value.get("model").and_then(serde_json::Value::as_str),
             Some("gpt-5.2")
+        );
+        assert_eq!(
+            value
+                .get("prompt_cache_key")
+                .and_then(serde_json::Value::as_str),
+            Some("thread-2")
         );
     }
 }

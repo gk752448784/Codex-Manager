@@ -46,6 +46,13 @@ where
         }
         return UpstreamOutcomeDecision::RespondUpstream;
     }
+    if matches!(status.as_u16(), 500..=599) {
+        log_gateway_result(Some(url), status.as_u16(), Some("upstream server error"));
+        if has_more_candidates {
+            return UpstreamOutcomeDecision::Failover;
+        }
+        return UpstreamOutcomeDecision::RespondUpstream;
+    }
 
     let is_challenge =
         super::super::super::is_upstream_challenge_response(status.as_u16(), upstream_content_type);

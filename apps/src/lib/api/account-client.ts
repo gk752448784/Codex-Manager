@@ -68,6 +68,7 @@ interface ApiKeyPayload {
   name?: string | null;
   modelSlug?: string | null;
   reasoningEffort?: string | null;
+  serviceTier?: string | null;
   protocolType?: string | null;
   upstreamBaseUrl?: string | null;
   staticHeadersJson?: string | null;
@@ -256,6 +257,7 @@ export const accountClient = {
         name: params.name || null,
         modelSlug: params.modelSlug || null,
         reasoningEffort: params.reasoningEffort || null,
+        serviceTier: params.serviceTier || null,
         protocolType: params.protocolType || null,
         upstreamBaseUrl: params.upstreamBaseUrl || null,
         staticHeadersJson: params.staticHeadersJson || null,
@@ -276,6 +278,7 @@ export const accountClient = {
         keyId,
         modelSlug: params.modelSlug || null,
         reasoningEffort: params.reasoningEffort || null,
+        serviceTier: params.serviceTier || null,
         protocolType: params.protocolType || null,
         upstreamBaseUrl: params.upstreamBaseUrl || null,
         staticHeadersJson: params.staticHeadersJson || null,

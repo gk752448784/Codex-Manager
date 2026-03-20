@@ -35,13 +35,11 @@ impl Drop for EnvGuard {
 }
 
 #[test]
-fn reload_from_env_updates_timeout_and_cookie() {
+fn reload_from_env_updates_timeout_and_proxy() {
     let _guard = test_guard();
     let _timeout_guard = EnvGuard::set(ENV_UPSTREAM_TOTAL_TIMEOUT_MS, "777");
     let _stream_timeout_guard = EnvGuard::set(ENV_UPSTREAM_STREAM_TIMEOUT_MS, "888");
     let _inflight_guard = EnvGuard::set(ENV_ACCOUNT_MAX_INFLIGHT, "4");
-    let _cookie_guard = EnvGuard::set(ENV_UPSTREAM_COOKIE, "cookie=abc");
-    let _cpa_mode_guard = EnvGuard::set(ENV_CPA_NO_COOKIE_HEADER_MODE, "1");
     let _strict_allowlist_guard = EnvGuard::set(ENV_STRICT_REQUEST_PARAM_ALLOWLIST, "0");
     let _request_compression_guard = EnvGuard::set(ENV_ENABLE_REQUEST_COMPRESSION, "0");
     let _client_id_guard = EnvGuard::set(ENV_TOKEN_EXCHANGE_CLIENT_ID, "client-id-123");
@@ -53,8 +51,6 @@ fn reload_from_env_updates_timeout_and_cookie() {
     assert_eq!(upstream_total_timeout(), Some(Duration::from_millis(777)));
     assert_eq!(upstream_stream_timeout(), Some(Duration::from_millis(888)));
     assert_eq!(account_max_inflight_limit(), 4);
-    assert_eq!(upstream_cookie().as_deref(), Some("cookie=abc"));
-    assert!(cpa_no_cookie_header_mode_enabled());
     assert!(!strict_request_param_allowlist_enabled());
     assert!(!request_compression_enabled());
     assert_eq!(token_exchange_client_id(), "client-id-123");
@@ -207,7 +203,19 @@ fn set_originator_updates_env_and_dynamic_user_agent() {
         std::env::var(ENV_ORIGINATOR).ok().as_deref(),
         Some("codex_cli_rs_windows")
     );
-    assert!(current_codex_user_agent().contains("codex_cli_rs_windows/0.101.0"));
+    let expected_prefix = format!("codex_cli_rs/{}", current_codex_user_agent_version());
+    assert!(current_codex_user_agent().contains(expected_prefix.as_str()));
+}
+
+#[test]
+fn set_codex_user_agent_version_updates_env_and_user_agent() {
+    let _guard = test_guard();
+
+    let applied = set_codex_user_agent_version("0.102.1").expect("set codex user agent version");
+
+    assert_eq!(applied, "0.102.1");
+    assert_eq!(current_codex_user_agent_version(), "0.102.1");
+    assert!(current_codex_user_agent().contains("codex_cli_rs/0.102.1"));
 }
 
 #[test]
